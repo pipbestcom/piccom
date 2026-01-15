@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>中电数媒-公共图片托管平台 / Public Image Hosting Platform</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg1:#0a1229;
+      --bg2:#1e3a8a;
+      --card: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --accent: #3b82f6;
+      --hover: rgba(59,130,246,.2);
+      --selected: rgba(59,130,246,.3);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+                   "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% 15%, rgba(59,130,246,.30), transparent 60%),
+        radial-gradient(1000px 600px at 85% 80%, rgba(30,58,138,.40), transparent 55%),
+        linear-gradient(135deg, var(--bg1), #0b1636 35%, var(--bg2));
+      color:var(--text);
+      overflow:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      background-image:
+        linear-gradient(to right, rgba(255,255,255,.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at 50% 35%, black 0%, transparent 65%);
+      pointer-events:none;
+      opacity:.9;
+    }
+
+    /* Layout */
+    .container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 300px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(14px);
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      padding: 16px 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+    }
+
+    /* Directory Tree */
+    .directory-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .tree-item:hover {
+      background: var(--hover);
+    }
+
+    .tree-item.selected {
+      background: var(--selected);
+    }
+
+    .tree-item.expanded .tree-icon::before {
+      transform: rotate(90deg);
+    }
+
+    .tree-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .tree-icon::before {
+      content: "▶";
+      transition: transform 0.2s;
+    }
+
+    .tree-icon.folder::before {
+      content: "📁";
+    }
+
+    .tree-icon.file::before {
+      content: "📄";
+    }
+
+    .tree-icon.image::before {
+      content: "🖼️";
+    }
+
+    .tree-children {
+      margin-left: 20px;
+      display: none;
+    }
+
+    .tree-children.expanded {
+      display: block;
+    }
+
+    /* Content Area */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* View Modes */
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,.06);
+      border-radius: 6px;
+      padding: 2px;
+    }
+
+    .view-btn {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+    }
+
+    .view-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: var(--hover);
+      border-color: var(--accent);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* List View */
+    .list-view {
+      display: none;
+    }
+
+    .list-view.active {
+      display: block;
+    }
+
+    .image-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+
+    .image-item:hover {
+      background: var(--hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    }
+
+    .image-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    .image-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .image-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .image-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+    }
+
+    .image-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Grid View */
+    .grid-view {
+      display: none;
+    }
+
+    .grid-view.active {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .grid-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .grid-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      border-color: var(--accent);
+    }
+
+    .grid-image {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+    }
+
+    .grid-info {
+      padding: 12px;
+    }
+
+    .grid-name {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .grid-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.8);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .modal-image {
+      max-width: 100%;
+      max-height: 80vh;
+      display: block;
+    }
+
+    .modal-actions {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Badge */
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 12px;
+      border-radius:999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size:13px;
+      letter-spacing:.3px;
+    }
+    .dot{
+      width:9px; height:9px; border-radius:50%;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(59,130,246,.85);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="header">
+        <div class="badge"><span class="dot"></span>目录树 / Directory Tree</div>
+      </div>
+      <div class="directory-tree" id="directory-tree">
+        <div class="loading">
+          <div class="spinner"></div>
+          加载中...
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 style="margin:0; font-size:24px;">中电数媒-公共图片托管平台</h1>
+        <div style="font-size:14px; color:var(--muted); margin-top:4px;">
+          Public Image Hosting Platform
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="view-toggle">
+          <button class="view-btn active" data-view="grid" id="grid-view-btn">
+            🖼️ 预览
+          </button>
+          <button class="view-btn" data-view="list" id="list-view-btn">
+            📋 列表
+          </button>
+        </div>
+        <div style="flex:1;"></div>
+        <button class="btn" id="export-btn">
+          📊 导出CSV
+        </button>
+        <button class="btn" id="refresh-btn">
+          🔄 刷新
+        </button>
+      </div>
+
+      <div class="content-area">
+        <div class="grid-view active" id="grid-view"></div>
+        <div class="list-view" id="list-view"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Preview Modal -->
+  <div class="modal" id="image-modal">
+    <div class="modal-content">
+      <img id="modal-image" class="modal-image" src="" alt="">
+      <div class="modal-actions">
+        <div id="modal-info"></div>
+        <div>
+          <button class="btn" id="copy-link-btn">📋 复制链接</button>
+          <button class="btn" id="close-modal-btn">✕ 关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Mock data for demonstration
+    const mockData = {
+      "images/": {
+        "type": "folder",
+        "children": {
+          "products/": {
+            "type": "folder",
+            "children": {
+              "product1.jpg": { type: "image", size: "2.3MB", dimensions: "1920x1080" },
+              "product2.png": { type: "image", size: "1.8MB", dimensions: "1280x720" },
+              "product3.webp": { type: "image", size: "950KB", dimensions: "800x600" }
+            }
+          },
+          "logos/": {
+            "type": "folder",
+            "children": {
+              "logo_main.svg": { type: "image", size: "45KB", dimensions: "SVG" },
+              "logo_small.png": { type: "image", size: "120KB", dimensions: "200x200" }
+            }
+          },
+          "banners/": {
+            "type": "folder",
+            "children": {
+              "banner1.jpg": { type: "image", size: "3.2MB", dimensions: "2560x1440" },
+              "banner2.jpg": { type: "image", size: "2.8MB", dimensions: "1920x1080" }
+            }
+          },
+          "hero.jpg": { type: "image", size: "4.1MB", dimensions: "3840x2160" },
+          "background.png": { type: "image", size: "1.5MB", dimensions: "1920x1080" }
+        }
+      },
+      "documents/": {
+        "type": "folder",
+        "children": {
+          "readme.txt": { type: "file", size: "2KB" },
+          "changelog.md": { type: "file", size: "15KB" }
+        }
+      }
+    };
+
+    let currentPath = "images/";
+    let currentView = "grid";
+
+    // DOM elements
+    const directoryTree = document.getElementById('directory-tree');
+    const gridView = document.getElementById('grid-view');
+    const listView = document.getElementById('list-view');
+    const gridViewBtn = document.getElementById('grid-view-btn');
+    const listViewBtn = document.getElementById('list-view-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const imageModal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+    const modalInfo = document.getElementById('modal-info');
+    const copyLinkBtn = document.getElementById('copy-link-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      renderDirectoryTree();
+      renderImages();
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      // View toggle
+      gridViewBtn.addEventListener('click', () => switchView('grid'));
+      listViewBtn.addEventListener('click', () => switchView('list'));
+
+      // Export
+      exportBtn.addEventListener('click', exportToCSV);
+
+      // Refresh
+      refreshBtn.addEventListener('click', () => {
+        renderDirectoryTree();
+        renderImages();
+      });
+
+      // Modal
+      closeModalBtn.addEventListener('click', () => imageModal.classList.remove('active'));
+      copyLinkBtn.addEventListener('click', copyImageLink);
+    }
+
+    function renderDirectoryTree() {
+      directoryTree.innerHTML = '';
+      renderTreeItem(mockData, '', directoryTree, true);
+    }
+
+    function renderTreeItem(data, path, parent, isRoot = false) {
+      for (const [name, item] of Object.entries(data)) {
+        const itemPath = isRoot ? name : path + name;
+        const itemElement = document.createElement('div');
+        itemElement.className = 'tree-item';
+        itemElement.dataset.path = itemPath;
+
+        if (item.type === 'folder') {
+          itemElement.innerHTML = `
+            <div class="tree-icon folder"></div>
+            <span>${name}</span>
+          `;
+          itemElement.addEventListener('click', () => toggleFolder(itemElement, itemPath));
+        } else if (item.type === 'image') {
+          itemElement.innerHTML = `
+            <div class="tree-icon image"></div>
+            <span>${name}</span>
+          `;
+          itemElement.addEventListener('click', () => selectImage(itemPath, item));
+        } else {
+          itemElement.innerHTML = `
+            <div class="tree-icon file"></div>
+            <span>${name}</span>
+          `;
+        }
+
+        if (item.type === 'folder') {
+          const childrenContainer = document.createElement('div');
+          childrenContainer.className = 'tree-children';
+          renderTreeItem(item.children, itemPath + '/', childrenContainer);
+          itemElement.appendChild(childrenContainer);
+        }
+
+        parent.appendChild(itemElement);
+      }
+    }
+
+    function toggleFolder(element, path) {
+      const children = element.querySelector('.tree-children');
+      const isExpanded = children.classList.contains('expanded');
+
+      if (isExpanded) {
+        children.classList.remove('expanded');
+        element.classList.remove('expanded');
+      } else {
+        children.classList.add('expanded');
+        element.classList.add('expanded');
+        currentPath = path;
+        renderImages();
+      }
+    }
+
+    function selectImage(path, item) {
+      // Remove previous selection
+      document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
+
+      // Add selection to clicked item
+      event.currentTarget.classList.add('selected');
+
+      // Show image preview
+      showImageModal(path, item);
+    }
+
+    function renderImages() {
+      const folderData = getFolderData(currentPath);
+      if (!folderData || folderData.type !== 'folder') return;
+
+      const images = Object.entries(folderData.children).filter(([_, item]) => item.type === 'image');
+
+      // Grid view
+      gridView.innerHTML = '';
+      images.forEach(([name, item]) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'grid-item';
+        itemElement.innerHTML = `
+          <img class="grid-image" src="https://picsum.photos/200/150?random=${Math.random()}" alt="${name}">
+          <div class="grid-info">
+            <div class="grid-name">${name}</div>
+            <div class="grid-meta">${item.size} · ${item.dimensions}</div>
+          </div>
+        `;
+        itemElement.addEventListener('click', () => showImageModal(currentPath + name, item));
+        gridView.appendChild(itemElement);
+      });
+
+      // List view
+      listView.innerHTML = '';
+      images.forEach(([name, item]) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'image-item';
+        itemElement.innerHTML = `
+          <img class="image-thumb" src="https://picsum.photos/60/60?random=${Math.random()}" alt="${name}">
+          <div class="image-info">
+            <div class="image-name">${name}</div>
+            <div class="image-meta">
+              <span>大小: ${item.size}</span>
+              <span>尺寸: ${item.dimensions}</span>
+              <span>路径: ${currentPath + name}</span>
+            </div>
+          </div>
+          <div class="image-actions">
+            <button class="btn" onclick="copyImageLink('${currentPath + name}')">📋 复制链接</button>
+          </div>
+        `;
+        listView.appendChild(itemElement);
+      });
+    }
+
+    function getFolderData(path) {
+      const parts = path.split('/').filter(p => p);
+      let current = mockData;
+
+      for (const part of parts) {
+        if (current[part] && current[part].type === 'folder') {
+          current = current[part].children;
+        } else {
+          return null;
+        }
+      }
+
+      return { type: 'folder', children: current };
+    }
+
+    function switchView(view) {
+      currentView = view;
+
+      // Update buttons
+      gridViewBtn.classList.toggle('active', view === 'grid');
+      listViewBtn.classList.toggle('active', view === 'list');
+
+      // Update views
+      gridView.classList.toggle('active', view === 'grid');
+      listView.classList.toggle('active', view === 'list');
+    }
+
+    function showImageModal(path, item) {
+      modalImage.src = `https://picsum.photos/800/600?random=${Math.random()}`;
+      modalInfo.innerHTML = `
+        <strong>${path.split('/').pop()}</strong> |
+        大小: ${item.size} |
+        尺寸: ${item.dimensions}
+      `;
+      imageModal.classList.add('active');
+    }
+
+    function copyImageLink(path) {
+      if (path) {
+        navigator.clipboard.writeText(`https://example.com/${path}`).then(() => {
+          alert('链接已复制到剪贴板！');
+        });
+      } else {
+        const currentSrc = modalImage.src;
+        navigator.clipboard.writeText(currentSrc).then(() => {
+          alert('链接已复制到剪贴板！');
+        });
+      }
+    }
+
+    function exportToCSV() {
+      const folderData = getFolderData(currentPath);
+      if (!folderData || folderData.type !== 'folder') return;
+
+      const images = Object.entries(folderData.children).filter(([_, item]) => item.type === 'image');
+
+      let csvContent = "名称,路径,大小,尺寸\n";
+      images.forEach(([name, item]) => {
+        csvContent += `"${name}","${currentPath + name}","${item.size}","${item.dimensions}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `images_${currentPath.replace(/\//g, '_')}.csv`;
+      link.click();
+    }
+  </script>
+</body>
+</html>
