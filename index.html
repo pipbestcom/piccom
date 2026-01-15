@@ -226,6 +226,7 @@
       border: 1px solid var(--border);
       margin-bottom: 8px;
       transition: all 0.2s;
+      cursor: pointer;
     }
 
     .image-item:hover {
@@ -239,6 +240,18 @@
       height: 60px;
       border-radius: 6px;
       object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    .file-thumb {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border-radius: 6px;
+      background: var(--card);
       border: 1px solid var(--border);
     }
 
@@ -260,6 +273,11 @@
       color: var(--muted);
       display: flex;
       gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .image-meta span {
+      white-space: nowrap;
     }
 
     .image-actions {
@@ -297,6 +315,17 @@
       width: 100%;
       height: 150px;
       object-fit: cover;
+    }
+
+    .grid-file-icon {
+      width: 100%;
+      height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
     }
 
     .grid-info {
@@ -633,7 +662,7 @@
 
     function renderImages() {
       if (isLoading || !directoryData) {
-        const loadingHtml = '<div class="loading"><div class="spinner"></div>加载图片...</div>';
+        const loadingHtml = '<div class="loading"><div class="spinner"></div>加载文件...</div>';
         gridView.innerHTML = loadingHtml;
         listView.innerHTML = loadingHtml;
         return;
@@ -641,52 +670,164 @@
 
       const folderData = getFolderData(currentPath);
       if (!folderData || folderData.type !== 'folder') {
-        gridView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录中没有图片</div>';
-        listView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录中没有图片</div>';
+        gridView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
+        listView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
         return;
       }
 
-      const images = Object.entries(folderData.children).filter(([_, item]) => item.type === 'image');
+      const allFiles = Object.entries(folderData.children);
 
       // Grid view
       gridView.innerHTML = '';
-      images.forEach(([name, item]) => {
+      allFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'grid-item';
-        const imageUrl = `./${item.url}`;
-        itemElement.innerHTML = `
-          <img class="grid-image" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjEwMCIgeT0iNzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
-          <div class="grid-info">
-            <div class="grid-name">${name}</div>
-            <div class="grid-meta">${item.size} · ${item.dimensions}</div>
-          </div>
-        `;
-        itemElement.addEventListener('click', () => showImageModal(currentPath + name, item));
+
+        if (item.type === 'image') {
+          const imageUrl = `./${item.url}`;
+          itemElement.innerHTML = `
+            <img class="grid-image" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjEwMCIgeT0iNzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+            <div class="grid-info">
+              <div class="grid-name">${name}</div>
+              <div class="grid-meta">${item.size} · ${item.dimensions}</div>
+            </div>
+          `;
+          itemElement.addEventListener('click', () => showImageModal(currentPath + name, item));
+        } else {
+          // 非图片文件显示文件图标
+          const fileIcon = getFileIcon(name);
+          itemElement.innerHTML = `
+            <div class="grid-file-icon">${fileIcon}</div>
+            <div class="grid-info">
+              <div class="grid-name">${name}</div>
+              <div class="grid-meta">${item.size || '文件'}</div>
+            </div>
+          `;
+          itemElement.addEventListener('click', () => showFileInfo(currentPath + name, item));
+        }
+
         gridView.appendChild(itemElement);
       });
 
       // List view
       listView.innerHTML = '';
-      images.forEach(([name, item]) => {
+      allFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'image-item';
-        const imageUrl = `./${item.url}`;
-        itemElement.innerHTML = `
-          <img class="image-thumb" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iMzAiIHk9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjEwIj5Ob0ltZzwvdGV4dD48L3N2Zz4='">
-          <div class="image-info">
-            <div class="image-name">${name}</div>
-            <div class="image-meta">
-              <span>大小: ${item.size}</span>
-              <span>尺寸: ${item.dimensions}</span>
-              <span>路径: ${currentPath + name}</span>
+
+        if (item.type === 'image') {
+          const imageUrl = `./${item.url}`;
+          itemElement.innerHTML = `
+            <img class="image-thumb" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iMzAiIHk9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjEwIj5Ob0ltZzwvdGV4dD48L3N2Zz4='">
+            <div class="image-info">
+              <div class="image-name">${name}</div>
+              <div class="image-meta">
+                <span>大小: ${item.size}</span>
+                <span>尺寸: ${item.dimensions}</span>
+                <span>路径: ${currentPath + name}</span>
+              </div>
             </div>
-          </div>
-          <div class="image-actions">
-            <button class="btn" onclick="copyImageLink('${currentPath + name}')">📋 复制链接</button>
-          </div>
-        `;
+            <div class="image-actions">
+              <button class="btn" onclick="copyImageLink('${currentPath + name}')">📋 复制链接</button>
+            </div>
+          `;
+          itemElement.addEventListener('click', () => showImageModal(currentPath + name, item));
+        } else {
+          // 非图片文件显示文件图标
+          const fileIcon = getFileIcon(name);
+          itemElement.innerHTML = `
+            <div class="file-thumb">${fileIcon}</div>
+            <div class="image-info">
+              <div class="image-name">${name}</div>
+              <div class="image-meta">
+                <span>大小: ${item.size || '未知'}</span>
+                <span>类型: ${getFileType(name)}</span>
+                <span>路径: ${currentPath + name}</span>
+              </div>
+            </div>
+            <div class="image-actions">
+              <button class="btn" onclick="copyFileLink('${currentPath + name}')">📋 复制链接</button>
+            </div>
+          `;
+          itemElement.addEventListener('click', () => showFileInfo(currentPath + name, item));
+        }
+
         listView.appendChild(itemElement);
       });
+    }
+
+    function getFileIcon(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      const iconMap = {
+        'txt': '📄',
+        'md': '📝',
+        'pdf': '📕',
+        'doc': '📄',
+        'docx': '📄',
+        'xls': '📊',
+        'xlsx': '📊',
+        'ppt': '📽️',
+        'pptx': '📽️',
+        'zip': '📦',
+        'rar': '📦',
+        'json': '⚙️',
+        'js': '💻',
+        'css': '🎨',
+        'html': '🌐',
+        'xml': '📋'
+      };
+      return iconMap[ext] || '📄';
+    }
+
+    function getFileType(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      const typeMap = {
+        'txt': '文本文件',
+        'md': 'Markdown文档',
+        'pdf': 'PDF文档',
+        'doc': 'Word文档',
+        'docx': 'Word文档',
+        'xls': 'Excel表格',
+        'xlsx': 'Excel表格',
+        'ppt': 'PowerPoint演示',
+        'pptx': 'PowerPoint演示',
+        'zip': '压缩文件',
+        'rar': '压缩文件',
+        'json': '配置文件',
+        'js': 'JavaScript脚本',
+        'css': '样式表',
+        'html': 'HTML页面',
+        'xml': 'XML文档'
+      };
+      return typeMap[ext] || '未知文件类型';
+    }
+
+    function showFileInfo(path, item) {
+      // 显示文件信息模态框
+      const fileType = getFileType(path.split('/').pop());
+      const fileIcon = getFileIcon(path.split('/').pop());
+
+      const modal = document.getElementById('image-modal');
+      const modalImage = document.getElementById('modal-image');
+      const modalInfo = document.getElementById('modal-info');
+
+      modalImage.src = 'data:image/svg+xml;base64,' + btoa(`
+        <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="300" fill="#f0f0f0"/>
+          <text x="200" y="120" text-anchor="middle" font-size="48">${fileIcon}</text>
+          <text x="200" y="180" text-anchor="middle" font-size="16" fill="#666">${fileType}</text>
+          <text x="200" y="200" text-anchor="middle" font-size="12" fill="#999">${path.split('/').pop()}</text>
+        </svg>
+      `);
+
+      modalInfo.innerHTML = `
+        <strong>${path.split('/').pop()}</strong><br>
+        类型: ${fileType}<br>
+        大小: ${item.size || '未知'}<br>
+        路径: ${path}
+      `;
+
+      modal.classList.add('active');
     }
 
     function getFolderData(path) {
@@ -733,6 +874,10 @@
     }
 
     function copyImageLink(path) {
+      copyFileLink(path);
+    }
+
+    function copyFileLink(path) {
       let linkToCopy = '';
 
       if (path) {
