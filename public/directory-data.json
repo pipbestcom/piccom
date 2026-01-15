@@ -27,8 +27,8 @@
     "children": {
       "background.png": {
         "type": "image",
-        "size": "120KB",
-        "dimensions": "200x200",
+        "size": "1.8MB",
+        "dimensions": "1280x720",
         "path": "images/background.png",
         "url": "images/background.png"
       },
@@ -37,15 +37,15 @@
         "children": {
           "banner1.jpg": {
             "type": "image",
-            "size": "3.2MB",
+            "size": "2.3MB",
             "dimensions": "1920x1080",
             "path": "images/banners/banner1.jpg",
             "url": "images/banners/banner1.jpg"
           },
           "banner2.jpg": {
             "type": "image",
-            "size": "3.2MB",
-            "dimensions": "1920x1080",
+            "size": "4.1MB",
+            "dimensions": "3840x2160",
             "path": "images/banners/banner2.jpg",
             "url": "images/banners/banner2.jpg"
           }
@@ -53,7 +53,7 @@
       },
       "hero.jpg": {
         "type": "image",
-        "size": "2.8MB",
+        "size": "3.2MB",
         "dimensions": "1920x1080",
         "path": "images/hero.jpg",
         "url": "images/hero.jpg"
@@ -70,8 +70,8 @@
           },
           "logo_small.png": {
             "type": "image",
-            "size": "120KB",
-            "dimensions": "1920x1080",
+            "size": "1.8MB",
+            "dimensions": "200x200",
             "path": "images/logos/logo_small.png",
             "url": "images/logos/logo_small.png"
           }
@@ -82,14 +82,14 @@
         "children": {
           "product1.jpg": {
             "type": "image",
-            "size": "2.3MB",
-            "dimensions": "2560x1440",
+            "size": "3.2MB",
+            "dimensions": "1920x1080",
             "path": "images/products/product1.jpg",
             "url": "images/products/product1.jpg"
           },
           "product2.png": {
             "type": "image",
-            "size": "1.5MB",
+            "size": "1.8MB",
             "dimensions": "1280x720",
             "path": "images/products/product2.png",
             "url": "images/products/product2.png"
