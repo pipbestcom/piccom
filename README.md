@@ -1,93 +1,177 @@
-# 🖼️ Image Hosting Repository / 图床仓库模板
+# 中电数媒公共图片托管平台
 
-This repository is a **lightweight image hosting (image bed) template**, designed to store and serve static image assets with **stable URLs** and **CDN acceleration**.
+一个静态网站实现的图片文件浏览器，支持目录树浏览、图片预览、批量导出等功能。
 
-本仓库是一个**轻量级图床（Image Hosting）模板仓库**，用于存放并对外提供**稳定、可长期引用的图片资源链接**。
+## 功能特性
 
----
+- 📁 **目录树浏览** - 左侧显示可展开/折叠的目录结构
+- 🖼️ **图片预览** - 支持网格和列表两种查看模式
+- 📊 **信息显示** - 显示文件大小、尺寸等属性
+- 📋 **链接复制** - 一键复制图片链接到剪贴板
+- 📄 **CSV导出** - 批量导出目录中的图片信息
+- 🌙 **暗色主题** - 现代化的UI设计
 
-## 🎯 Purpose / 用途说明
-
-### 🌐 English
-
-This repository is intended to be used as:
-
-- 🗂️ A **personal image hosting repository**
-- 📦 A **static asset storage** for blogs, documentation, or projects
-- 🔗 A backend for image uploads that require **stable, version-controlled URLs**
-- 🚀 A repository that can be safely deployed to platforms like **Vercel** without causing 404 errors
-
-All images stored here can be referenced directly via raw file URLs or CDN-accelerated links.
-
-### 🇨🇳 中文
-
-本仓库的主要用途包括：
-
-- 🧑‍💻 作为**个人图床仓库**
-- 📝 为博客、文档或项目提供**静态图片资源存储**
-- 🔒 用于需要**长期稳定引用链接**的图片托管
-- ☁️ 可直接部署到 **Vercel 等平台**，避免因缺少入口文件导致 404
-
-仓库内的图片可通过原始文件地址或 CDN 加速方式进行访问。
-
----
-
-## 🧱 Repository Structure / 仓库结构
+## 项目结构
 
 ```
+piccom/
+├── public/                 # 静态网站文件
+│   ├── index.html         # 主页面
+│   ├── directory-data.json # 目录结构数据（自动生成）
+│   ├── images/            # 图片文件目录
+│   │   ├── products/      # 产品图片
+│   │   ├── logos/         # logo图片
+│   │   ├── banners/       # 横幅图片
+│   │   └── ...            # 其他图片
+│   └── documents/         # 文档文件
+├── generate-directory-data.js  # 目录扫描脚本
+└── README.md             # 项目说明
+```
 
+## 快速开始
+
+### 自动部署（推荐）
+
+使用部署脚本一键完成所有步骤：
+
+```bash
+./deploy.sh
+```
+
+此脚本会自动：
+1. 生成目录数据
+2. 提交更改到Git
+3. 推送到GitHub
+4. 提示GitHub Pages访问地址
+
+### 手动部署步骤
+
+#### 1. 添加图片文件
+
+将您的图片文件放入 `public/` 目录下的相应子目录中：
+
+```
 public/
-├── index.html
-README.md
-
+├── images/
+│   ├── products/     # 产品图片
+│   ├── logos/        # logo文件
+│   ├── banners/      # 横幅图片
+│   └── hero.jpg      # 直接放在images下的文件
 ```
 
-### 📄 `public/index.html`
+支持的图片格式：`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.svg`, `.bmp`
 
-- A **minimal placeholder file**
-- Exists solely to prevent 404 errors when deployed as a static site
-- Not intended to be the main functionality of this repository
+#### 2. 生成目录数据
 
-该文件仅作为**占位入口文件**存在，用于防止在静态部署（如 Vercel）时返回 404  
-**不承担任何图床核心逻辑**
+每次添加或修改文件后，运行目录扫描脚本：
 
----
+```bash
+node generate-directory-data.js
+```
 
-## 🧠 Design Philosophy / 设计理念
+此脚本会：
+- 扫描 `public/` 目录下的所有文件
+- 生成 `public/directory-data.json` 文件
+- 显示目录结构预览
 
-- ✨ **Simplicity first** — no backend, no database, no runtime logic
-- 🧷 **Stability over features** — links should remain valid long-term
-- 🧾 **Version controlled assets** — every change is traceable via Git
-- 🛠️ **Deployment-friendly** — works out of the box on static hosting platforms
+#### 3. 部署到GitHub Pages
 
-核心理念是：  
-**把图床当作一个可靠的“静态资源仓库”，而不是一个复杂系统**
+1. 提交所有文件到GitHub仓库
+2. 在仓库设置中启用GitHub Pages
+3. 选择 `main` 分支的 `/(root)` 目录作为源
+4. 访问 `https://yourusername.github.io/repository-name/` 查看网站
 
----
+## 本地开发
 
-## 📌 Typical Use Cases / 常见使用场景
+### 使用Python简单服务器
 
-- 📰 Blog image embedding (Markdown / HTML)
-- 🧪 Project documentation screenshots
-- 🌍 CDN-backed asset hosting
-- 🤖 Paired with upload tools or scripts (manual or automated)
+```bash
+cd public
+python3 -m http.server 8000
+```
 
----
+然后访问 `http://localhost:8000`
 
-## ⚖️ License / 许可说明
+### 或使用其他静态服务器
 
-This repository structure and placeholder page are provided under the **MIT License**.  
-Image assets stored in this repository may be subject to their own copyright.
+```bash
+# 使用npx
+npx serve public
 
-本仓库结构及占位页面采用 **MIT License**。  
-**具体图片资源的版权归其原作者所有，未经允许请勿转载或滥用。**
+# 或使用live-server
+npx live-server public
+```
 
----
+## 工作流程
 
-## 📝 Notes / 备注
+1. **添加文件** → 将图片放入相应目录
+2. **生成数据** → 运行 `node generate-directory-data.js`
+3. **预览测试** → 本地启动服务器查看效果
+4. **提交部署** → 推送到GitHub，自动部署到Pages
 
-This repository is intentionally minimal.  
-If you need authentication, upload APIs, or image processing, they should be implemented **outside** this repository.
+## GitHub部署指南
 
-本仓库刻意保持极简。  
-如需鉴权、上传接口或图片处理逻辑，请在**外部工具或服务**中实现。
+### 首次设置
+
+1. **创建GitHub仓库**
+   ```bash
+   # 初始化git仓库（如果还没有）
+   git init
+   git add .
+   git commit -m "Initial commit"
+   ```
+
+2. **推送到GitHub**
+   ```bash
+   git remote add origin https://github.com/yourusername/your-repo-name.git
+   git push -u origin main
+   ```
+
+3. **启用GitHub Pages**
+   - 进入仓库设置 (Settings)
+   - 找到 "Pages" 选项
+   - Source 选择 "Deploy from a branch"
+   - Branch 选择 "main"，文件夹选择 "/(root)"
+   - 保存设置
+
+4. **访问网站**
+   - 等待几分钟部署完成
+   - 访问 `https://yourusername.github.io/your-repo-name/`
+
+### 更新内容
+
+每次添加新图片后：
+
+```bash
+# 添加图片文件到相应目录
+# 运行生成脚本
+node generate-directory-data.js
+
+# 提交并推送
+git add .
+git commit -m "Add new images"
+git push
+```
+
+GitHub Pages 会自动重新部署，通常在1-2分钟内生效。
+
+## 注意事项
+
+- 图片文件应放在 `public/` 目录下
+- 每次修改文件结构后都要重新运行生成脚本
+- 生成的JSON文件包含文件大小和模拟尺寸信息
+- 支持的文件类型会自动识别和分类
+- GitHub Pages 有文件大小限制（仓库总大小不超过1GB）
+
+## 自定义配置
+
+如需修改支持的文件类型或添加其他功能，可以编辑：
+
+- `generate-directory-data.js` - 目录扫描逻辑
+- `public/index.html` - 前端界面和功能
+
+## 技术栈
+
+- **前端**: 纯HTML/CSS/JavaScript
+- **数据**: JSON格式的目录结构
+- **部署**: GitHub Pages静态托管

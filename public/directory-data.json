@@ -1,0 +1,114 @@
+{
+  "directory-data.json": {
+    "type": "file",
+    "size": "2KB",
+    "path": "directory-data.json",
+    "url": "directory-data.json"
+  },
+  "documents/": {
+    "type": "folder",
+    "children": {
+      "changelog.md": {
+        "type": "file",
+        "size": "0KB",
+        "path": "documents/changelog.md",
+        "url": "documents/changelog.md"
+      },
+      "readme.txt": {
+        "type": "file",
+        "size": "0KB",
+        "path": "documents/readme.txt",
+        "url": "documents/readme.txt"
+      }
+    }
+  },
+  "images/": {
+    "type": "folder",
+    "children": {
+      "background.png": {
+        "type": "image",
+        "size": "1.5MB",
+        "dimensions": "200x200",
+        "path": "images/background.png",
+        "url": "images/background.png"
+      },
+      "banners/": {
+        "type": "folder",
+        "children": {
+          "banner1.jpg": {
+            "type": "image",
+            "size": "2.3MB",
+            "dimensions": "1920x1080",
+            "path": "images/banners/banner1.jpg",
+            "url": "images/banners/banner1.jpg"
+          },
+          "banner2.jpg": {
+            "type": "image",
+            "size": "3.2MB",
+            "dimensions": "1920x1080",
+            "path": "images/banners/banner2.jpg",
+            "url": "images/banners/banner2.jpg"
+          }
+        }
+      },
+      "hero.jpg": {
+        "type": "image",
+        "size": "2.3MB",
+        "dimensions": "1920x1080",
+        "path": "images/hero.jpg",
+        "url": "images/hero.jpg"
+      },
+      "logos/": {
+        "type": "folder",
+        "children": {
+          "logo_main.svg": {
+            "type": "image",
+            "size": "45KB",
+            "dimensions": "SVG",
+            "path": "images/logos/logo_main.svg",
+            "url": "images/logos/logo_main.svg"
+          },
+          "logo_small.png": {
+            "type": "image",
+            "size": "1.5MB",
+            "dimensions": "1920x1080",
+            "path": "images/logos/logo_small.png",
+            "url": "images/logos/logo_small.png"
+          }
+        }
+      },
+      "products/": {
+        "type": "folder",
+        "children": {
+          "product1.jpg": {
+            "type": "image",
+            "size": "4.1MB",
+            "dimensions": "2560x1440",
+            "path": "images/products/product1.jpg",
+            "url": "images/products/product1.jpg"
+          },
+          "product2.png": {
+            "type": "image",
+            "size": "120KB",
+            "dimensions": "1280x720",
+            "path": "images/products/product2.png",
+            "url": "images/products/product2.png"
+          },
+          "product3.webp": {
+            "type": "image",
+            "size": "950KB",
+            "dimensions": "800x600",
+            "path": "images/products/product3.webp",
+            "url": "images/products/product3.webp"
+          }
+        }
+      }
+    }
+  },
+  "index.html": {
+    "type": "file",
+    "size": "21KB",
+    "path": "index.html",
+    "url": "index.html"
+  }
+}

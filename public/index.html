@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>中电数媒-公共图片托管平台 / Public Image Hosting Platform</title>
+  <title>金点网络-公共图片托管平台 / Public Image Hosting Platform</title>
   <style>
     :root{
       color-scheme: dark;
@@ -417,7 +417,7 @@
     <!-- Main Content -->
     <div class="main-content">
       <div class="header">
-        <h1 style="margin:0; font-size:24px;">中电数媒-公共图片托管平台</h1>
+        <h1 style="margin:0; font-size:24px;">金点网络-公共图片托管平台</h1>
         <div style="font-size:14px; color:var(--muted); margin-top:4px;">
           Public Image Hosting Platform
         </div>
@@ -463,48 +463,10 @@
   </div>
 
   <script>
-    // Mock data for demonstration
-    const mockData = {
-      "images/": {
-        "type": "folder",
-        "children": {
-          "products/": {
-            "type": "folder",
-            "children": {
-              "product1.jpg": { type: "image", size: "2.3MB", dimensions: "1920x1080" },
-              "product2.png": { type: "image", size: "1.8MB", dimensions: "1280x720" },
-              "product3.webp": { type: "image", size: "950KB", dimensions: "800x600" }
-            }
-          },
-          "logos/": {
-            "type": "folder",
-            "children": {
-              "logo_main.svg": { type: "image", size: "45KB", dimensions: "SVG" },
-              "logo_small.png": { type: "image", size: "120KB", dimensions: "200x200" }
-            }
-          },
-          "banners/": {
-            "type": "folder",
-            "children": {
-              "banner1.jpg": { type: "image", size: "3.2MB", dimensions: "2560x1440" },
-              "banner2.jpg": { type: "image", size: "2.8MB", dimensions: "1920x1080" }
-            }
-          },
-          "hero.jpg": { type: "image", size: "4.1MB", dimensions: "3840x2160" },
-          "background.png": { type: "image", size: "1.5MB", dimensions: "1920x1080" }
-        }
-      },
-      "documents/": {
-        "type": "folder",
-        "children": {
-          "readme.txt": { type: "file", size: "2KB" },
-          "changelog.md": { type: "file", size: "15KB" }
-        }
-      }
-    };
-
+    let directoryData = null;
     let currentPath = "images/";
     let currentView = "grid";
+    let isLoading = true;
 
     // DOM elements
     const directoryTree = document.getElementById('directory-tree');
@@ -520,11 +482,28 @@
     const copyLinkBtn = document.getElementById('copy-link-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
 
+    // Load directory data
+    async function loadDirectoryData() {
+      try {
+        const response = await fetch('./directory-data.json');
+        if (!response.ok) {
+          throw new Error('Failed to load directory data');
+        }
+        directoryData = await response.json();
+        isLoading = false;
+        renderDirectoryTree();
+        renderImages();
+      } catch (error) {
+        console.error('Error loading directory data:', error);
+        directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载目录数据失败<br>请确保已运行目录扫描脚本</div>';
+        isLoading = false;
+      }
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
-      renderDirectoryTree();
-      renderImages();
       setupEventListeners();
+      loadDirectoryData();
     });
 
     function setupEventListeners() {
@@ -537,8 +516,7 @@
 
       // Refresh
       refreshBtn.addEventListener('click', () => {
-        renderDirectoryTree();
-        renderImages();
+        loadDirectoryData();
       });
 
       // Modal
@@ -547,8 +525,18 @@
     }
 
     function renderDirectoryTree() {
+      if (isLoading) {
+        directoryTree.innerHTML = '<div class="loading"><div class="spinner"></div>加载目录结构...</div>';
+        return;
+      }
+
+      if (!directoryData) {
+        directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">目录数据未加载</div>';
+        return;
+      }
+
       directoryTree.innerHTML = '';
-      renderTreeItem(mockData, '', directoryTree, true);
+      renderTreeItem(directoryData, '', directoryTree, true);
     }
 
     function renderTreeItem(data, path, parent, isRoot = false) {
@@ -615,8 +603,19 @@
     }
 
     function renderImages() {
+      if (isLoading || !directoryData) {
+        const loadingHtml = '<div class="loading"><div class="spinner"></div>加载图片...</div>';
+        gridView.innerHTML = loadingHtml;
+        listView.innerHTML = loadingHtml;
+        return;
+      }
+
       const folderData = getFolderData(currentPath);
-      if (!folderData || folderData.type !== 'folder') return;
+      if (!folderData || folderData.type !== 'folder') {
+        gridView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录中没有图片</div>';
+        listView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录中没有图片</div>';
+        return;
+      }
 
       const images = Object.entries(folderData.children).filter(([_, item]) => item.type === 'image');
 
@@ -625,8 +624,9 @@
       images.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'grid-item';
+        const imageUrl = `./${item.url}`;
         itemElement.innerHTML = `
-          <img class="grid-image" src="https://picsum.photos/200/150?random=${Math.random()}" alt="${name}">
+          <img class="grid-image" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjEwMCIgeT0iNzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
           <div class="grid-info">
             <div class="grid-name">${name}</div>
             <div class="grid-meta">${item.size} · ${item.dimensions}</div>
@@ -641,8 +641,9 @@
       images.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'image-item';
+        const imageUrl = `./${item.url}`;
         itemElement.innerHTML = `
-          <img class="image-thumb" src="https://picsum.photos/60/60?random=${Math.random()}" alt="${name}">
+          <img class="image-thumb" src="${imageUrl}" alt="${name}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iMzAiIHk9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjEwIj5Ob0ltZzwvdGV4dD48L3N2Zz4='">
           <div class="image-info">
             <div class="image-name">${name}</div>
             <div class="image-meta">
@@ -660,8 +661,10 @@
     }
 
     function getFolderData(path) {
+      if (!directoryData) return null;
+
       const parts = path.split('/').filter(p => p);
-      let current = mockData;
+      let current = directoryData;
 
       for (const part of parts) {
         if (current[part] && current[part].type === 'folder') {
@@ -687,7 +690,11 @@
     }
 
     function showImageModal(path, item) {
-      modalImage.src = `https://picsum.photos/800/600?random=${Math.random()}`;
+      const imageUrl = `./${item.url}`;
+      modalImage.src = imageUrl;
+      modalImage.onerror = function() {
+        this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iI2NjYyIvPjx0ZXh0IHg9IjQwMCIgeT0iMzAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjI0Ij5JbWFnZSBMb2FkIEZhaWxlZDwvdGV4dD48L3N2Zz4=';
+      };
       modalInfo.innerHTML = `
         <strong>${path.split('/').pop()}</strong> |
         大小: ${item.size} |
@@ -697,16 +704,39 @@
     }
 
     function copyImageLink(path) {
+      let linkToCopy = '';
+
       if (path) {
-        navigator.clipboard.writeText(`https://example.com/${path}`).then(() => {
-          alert('链接已复制到剪贴板！');
-        });
+        // 从path获取对应的项目数据
+        const parts = path.split('/').filter(p => p);
+        let current = directoryData;
+        let item = null;
+
+        for (const part of parts) {
+          if (current && current[part]) {
+            if (current[part].type === 'folder') {
+              current = current[part].children;
+            } else {
+              item = current[part];
+            }
+          }
+        }
+
+        if (item && item.url) {
+          linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + item.url;
+        } else {
+          linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + path;
+        }
       } else {
-        const currentSrc = modalImage.src;
-        navigator.clipboard.writeText(currentSrc).then(() => {
-          alert('链接已复制到剪贴板！');
-        });
+        linkToCopy = modalImage.src;
       }
+
+      navigator.clipboard.writeText(linkToCopy).then(() => {
+        alert('链接已复制到剪贴板！\n' + linkToCopy);
+      }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制链接');
+      });
     }
 
     function exportToCSV() {
