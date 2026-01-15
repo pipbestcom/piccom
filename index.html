@@ -849,23 +849,23 @@
         return null;
       }
 
-      const parts = path.split('/').filter(p => p);
-      console.log('Path parts:', parts);
-      let current = directoryData;
-
-      for (const part of parts) {
-        console.log('Looking for part:', part, 'in current:', Object.keys(current));
-        if (current[part] && current[part].type === 'folder') {
-          current = current[part].children;
-          console.log('Found folder, moving to children');
-        } else {
-          console.log('Part not found or not a folder:', part);
-          return null;
-        }
+      // Handle root path
+      if (!path || path === '') {
+        console.log('Returning root directory data');
+        return { type: 'folder', children: directoryData };
       }
 
-      console.log('Returning folder data with children:', Object.keys(current));
-      return { type: 'folder', children: current };
+      // Ensure path ends with '/' for folder lookup
+      const folderPath = path.endsWith('/') ? path : path + '/';
+      console.log('Looking for folder path:', folderPath);
+
+      if (directoryData[folderPath] && directoryData[folderPath].type === 'folder') {
+        console.log('Found folder, returning children:', Object.keys(directoryData[folderPath].children));
+        return { type: 'folder', children: directoryData[folderPath].children };
+      }
+
+      console.log('Folder not found for path:', folderPath);
+      return null;
     }
 
     function switchView(view) {
