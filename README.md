@@ -150,8 +150,11 @@ node generate-directory-data.js
 # 提交并推送
 git add .
 git commit -m "Add new images"
-git push
+git pull origin main --rebase  # 同步远程更改
+git push origin main
 ```
+
+**注意：** 如果推送失败，请先运行 `git pull origin main --rebase` 来同步远程更改。
 
 GitHub Pages 会自动重新部署，通常在1-2分钟内生效。
 
