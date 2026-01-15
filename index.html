@@ -792,11 +792,16 @@
         } else {
           // 非图片文件显示文件图标
           const fileIcon = getFileIcon(name);
+          const fileExt = name.split('.').pop().toLowerCase();
+          const canPreview = ['txt', 'md', 'json', 'js', 'css', 'html', 'xml'].includes(fileExt);
+
           itemElement.innerHTML = `
             <div class="grid-file-icon">${fileIcon}</div>
             <div class="grid-info">
               <div class="grid-name">${name}</div>
-              <div class="grid-meta">${item.size || '文件'}</div>
+              <div class="grid-meta">${item.size || '文件'}
+                ${canPreview ? '<br><small style="color: #007acc;">可预览</small>' : ''}
+              </div>
             </div>
           `;
           itemElement.addEventListener('click', () => showFileInfo(currentPath + name, item));
@@ -832,6 +837,9 @@
         } else {
           // 非图片文件显示文件图标
           const fileIcon = getFileIcon(name);
+          const fileExt = name.split('.').pop().toLowerCase();
+          const canPreview = ['txt', 'md', 'json', 'js', 'css', 'html', 'xml'].includes(fileExt);
+
           itemElement.innerHTML = `
             <div class="file-thumb">${fileIcon}</div>
             <div class="image-info">
@@ -843,6 +851,7 @@
               </div>
             </div>
             <div class="image-actions">
+              ${canPreview ? `<button class="btn" onclick="showFileContent('${currentPath + name}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">👁️ 查看内容</button>` : ''}
               <button class="btn" onclick="copyFileLink('${currentPath + name}')">📋 复制链接</button>
             </div>
           `;
@@ -899,32 +908,122 @@
       return typeMap[ext] || '未知文件类型';
     }
 
-    function showFileInfo(path, item) {
-      // 显示文件信息模态框
-      const fileType = getFileType(path.split('/').pop());
-      const fileIcon = getFileIcon(path.split('/').pop());
+    async function showFileInfo(path, item) {
+      const filename = path.split('/').pop();
+      const fileType = getFileType(filename);
+      const fileIcon = getFileIcon(filename);
 
       const modal = document.getElementById('image-modal');
       const modalImage = document.getElementById('modal-image');
       const modalInfo = document.getElementById('modal-info');
 
+      // 检查是否是可以预览的文件类型
+      const previewableTypes = ['txt', 'md', 'json', 'js', 'css', 'html', 'xml'];
+      const fileExt = filename.split('.').pop().toLowerCase();
+      const canPreview = previewableTypes.includes(fileExt);
+
+      if (canPreview) {
+        try {
+          // 尝试加载文件内容
+          const response = await fetch(`./${item.url}`);
+          if (response.ok) {
+            const content = await response.text();
+            showFileContentModal(filename, fileType, content, path, item);
+            return;
+          }
+        } catch (error) {
+          console.log('无法加载文件内容:', error);
+        }
+      }
+
+      // 显示文件信息模态框
       modalImage.src = 'data:image/svg+xml;base64,' + btoa(`
         <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
           <rect width="400" height="300" fill="#f0f0f0"/>
           <text x="200" y="120" text-anchor="middle" font-size="48">${fileIcon}</text>
           <text x="200" y="180" text-anchor="middle" font-size="16" fill="#666">${fileType}</text>
-          <text x="200" y="200" text-anchor="middle" font-size="12" fill="#999">${path.split('/').pop()}</text>
+          <text x="200" y="200" text-anchor="middle" font-size="12" fill="#999">${filename}</text>
+          ${canPreview ? '<text x="200" y="240" text-anchor="middle" font-size="12" fill="#007acc">点击查看内容</text>' : ''}
         </svg>
       `);
 
       modalInfo.innerHTML = `
-        <strong>${path.split('/').pop()}</strong><br>
+        <strong>${filename}</strong><br>
         类型: ${fileType}<br>
         大小: ${item.size || '未知'}<br>
         路径: ${path}
+        ${canPreview ? '<br><small style="color: #007acc;">此文件支持内容预览</small>' : ''}
       `;
 
       modal.classList.add('active');
+    }
+
+    function showFileContentModal(filename, fileType, content, path, item) {
+      const modal = document.getElementById('image-modal');
+      const modalImage = document.getElementById('modal-image');
+      const modalInfo = document.getElementById('modal-info');
+
+      // 创建文件内容预览
+      const maxLength = 5000; // 限制预览长度
+      const truncated = content.length > maxLength;
+      const displayContent = truncated ? content.substring(0, maxLength) + '\n\n... (内容过长，已截断)' : content;
+
+      // 根据文件类型设置语法高亮类
+      const fileExt = filename.split('.').pop().toLowerCase();
+      let languageClass = '';
+      switch (fileExt) {
+        case 'js': languageClass = 'language-javascript'; break;
+        case 'json': languageClass = 'language-json'; break;
+        case 'css': languageClass = 'language-css'; break;
+        case 'html': languageClass = 'language-html'; break;
+        case 'xml': languageClass = 'language-xml'; break;
+        case 'md': languageClass = 'language-markdown'; break;
+        default: languageClass = 'language-plaintext';
+      }
+
+      modalImage.style.display = 'none';
+
+      // 创建内容容器
+      const contentContainer = document.createElement('div');
+      contentContainer.style.cssText = `
+        width: 100%;
+        height: 400px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 16px;
+        overflow-y: auto;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 13px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      `;
+      contentContainer.textContent = displayContent;
+
+      // 替换模态框内容
+      const modalContent = modal.querySelector('.modal-content');
+      modalContent.insertBefore(contentContainer, modalInfo);
+
+      modalInfo.innerHTML = `
+        <strong>${filename}</strong><br>
+        类型: ${fileType}<br>
+        大小: ${item.size || '未知'}<br>
+        路径: ${path}
+        ${truncated ? '<br><small style="color: #856404;">文件内容过长，仅显示前5000字符</small>' : ''}
+      `;
+
+      modal.classList.add('active');
+
+      // 清理函数
+      const closeHandler = () => {
+        modalContent.removeChild(contentContainer);
+        modalImage.style.display = 'block';
+        modal.removeEventListener('click', closeHandler);
+      };
+
+      // 点击关闭按钮时清理
+      document.getElementById('close-modal-btn').addEventListener('click', closeHandler, { once: true });
     }
 
     function getFolderData(path) {
@@ -935,14 +1034,20 @@
         return { type: 'folder', children: directoryData };
       }
 
-      // Ensure path ends with '/' for folder lookup
-      const folderPath = path.endsWith('/') ? path : path + '/';
+      // Split path into parts and navigate through nested structure
+      const parts = path.split('/').filter(p => p);
+      let current = directoryData;
 
-      if (directoryData[folderPath] && directoryData[folderPath].type === 'folder') {
-        return { type: 'folder', children: directoryData[folderPath].children };
+      for (const part of parts) {
+        const folderKey = part + '/';
+        if (current[folderKey] && current[folderKey].type === 'folder') {
+          current = current[folderKey].children;
+        } else {
+          return null;
+        }
       }
 
-      return null;
+      return { type: 'folder', children: current };
     }
 
     function switchView(view) {
@@ -1014,21 +1119,44 @@
       });
     }
 
+    async function showFileContent(path, item) {
+      const filename = path.split('/').pop();
+      const fileType = getFileType(filename);
+
+      try {
+        const response = await fetch(`./${item.url}`);
+        if (response.ok) {
+          const content = await response.text();
+          showFileContentModal(filename, fileType, content, path, item);
+        } else {
+          alert('无法加载文件内容');
+        }
+      } catch (error) {
+        console.error('加载文件内容失败:', error);
+        alert('加载文件内容失败');
+      }
+    }
+
     function exportToCSV() {
       const folderData = getFolderData(currentPath);
       if (!folderData || folderData.type !== 'folder') return;
 
-      const images = Object.entries(folderData.children).filter(([_, item]) => item.type === 'image');
+      const allFiles = Object.entries(folderData.children);
 
-      let csvContent = "名称,路径,大小,尺寸\n";
-      images.forEach(([name, item]) => {
-        csvContent += `"${name}","${currentPath + name}","${item.size}","${item.dimensions}"\n`;
+      let csvContent = "名称,路径,类型,大小,尺寸/格式\n";
+      allFiles.forEach(([name, item]) => {
+        const fileType = item.type === 'image' ? '图片' : getFileType(name);
+        const sizeOrFormat = item.type === 'image' ? item.dimensions : item.size;
+        csvContent += `"${name}","${currentPath + name}","${fileType}","${item.size}","${sizeOrFormat}"\n`;
       });
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `images_${currentPath.replace(/\//g, '_')}.csv`;
+
+      // 使用当前目录名称作为文件名
+      const folderName = currentPath.replace(/\/$/, '').split('/').pop() || 'root';
+      link.download = `${folderName}_files.csv`;
       link.click();
     }
   </script>
