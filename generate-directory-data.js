@@ -5,15 +5,30 @@ function scanDirectory(dirPath, basePath = '') {
   const result = {};
   const items = fs.readdirSync(dirPath);
 
+  // 排除的目录和文件
+  const excludeItems = [
+    '.git',
+    'node_modules',
+    '.idea',
+    '.DS_Store',
+    'generate-directory-data.js',
+    'scan-directory.js',
+    'server.js',
+    'deploy.sh',
+    'package.json',
+    'README.md',
+    '.gitignore'
+  ];
+
   items.forEach(item => {
+    // 跳过需要排除的项目
+    if (excludeItems.includes(item)) return;
+
     const fullPath = path.join(dirPath, item);
     const relativePath = path.join(basePath, item);
     const stats = fs.statSync(fullPath);
 
     if (stats.isDirectory()) {
-      // 跳过隐藏目录
-      if (item.startsWith('.')) return;
-
       result[item + '/'] = {
         type: 'folder',
         children: scanDirectory(fullPath, relativePath + '/')
@@ -67,15 +82,15 @@ function scanDirectory(dirPath, basePath = '') {
   return result;
 }
 
-// 扫描 public 目录
-const publicDir = path.join(__dirname, 'public');
-const directoryData = scanDirectory(publicDir);
+// 扫描根目录（排除.git, node_modules等）
+const rootDir = __dirname;
+const directoryData = scanDirectory(rootDir);
 
 // 生成 directory-data.json 文件
-const outputPath = path.join(__dirname, 'public', 'directory-data.json');
+const outputPath = path.join(__dirname, 'directory-data.json');
 fs.writeFileSync(outputPath, JSON.stringify(directoryData, null, 2), 'utf8');
 
-console.log('Directory scan completed. Data saved to public/directory-data.json');
+console.log('Directory scan completed. Data saved to directory-data.json');
 console.log('Total items found:', Object.keys(directoryData).length);
 
 // 显示目录结构预览

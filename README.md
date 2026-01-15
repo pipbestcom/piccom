@@ -15,17 +15,16 @@
 
 ```
 piccom/
-├── public/                 # 静态网站文件
-│   ├── index.html         # 主页面
-│   ├── directory-data.json # 目录结构数据（自动生成）
-│   ├── images/            # 图片文件目录
-│   │   ├── products/      # 产品图片
-│   │   ├── logos/         # logo图片
-│   │   ├── banners/       # 横幅图片
-│   │   └── ...            # 其他图片
-│   └── documents/         # 文档文件
+├── index.html             # 主页面
+├── directory-data.json    # 目录结构数据（自动生成）
+├── images/                # 图片文件目录
+│   ├── products/          # 产品图片
+│   ├── logos/             # logo图片
+│   ├── banners/           # 横幅图片
+│   └── ...                # 其他图片
+├── documents/             # 文档文件
 ├── generate-directory-data.js  # 目录扫描脚本
-└── README.md             # 项目说明
+└── README.md              # 项目说明
 ```
 
 ## 快速开始
@@ -48,15 +47,14 @@ piccom/
 
 #### 1. 添加图片文件
 
-将您的图片文件放入 `public/` 目录下的相应子目录中：
+将您的图片文件放入相应子目录中：
 
 ```
-public/
-├── images/
-│   ├── products/     # 产品图片
-│   ├── logos/        # logo文件
-│   ├── banners/      # 横幅图片
-│   └── hero.jpg      # 直接放在images下的文件
+images/
+├── products/     # 产品图片
+├── logos/        # logo文件
+├── banners/      # 横幅图片
+└── hero.jpg      # 直接放在images下的文件
 ```
 
 支持的图片格式：`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.svg`, `.bmp`
@@ -86,7 +84,6 @@ node generate-directory-data.js
 ### 使用Python简单服务器
 
 ```bash
-cd public
 python3 -m http.server 8000
 ```
 
@@ -160,7 +157,7 @@ GitHub Pages 会自动重新部署，通常在1-2分钟内生效。
 
 ## 注意事项
 
-- 图片文件应放在 `public/` 目录下
+- 图片文件应放在 `images/` 目录下
 - 每次修改文件结构后都要重新运行生成脚本
 - 生成的JSON文件包含文件大小和模拟尺寸信息
 - 支持的文件类型会自动识别和分类
