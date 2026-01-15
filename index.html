@@ -603,16 +603,42 @@
 
     // Generate colorful placeholder for images
     function generateImagePlaceholder(filename, width, height) {
-      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#FF9FF3', '#54A0FF'];
       const color = colors[Math.abs(filename.split('').reduce((a,b) => a + b.charCodeAt(0), 0)) % colors.length];
 
+      // Create a more detailed SVG placeholder
       const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="${width}" height="${height}" fill="${color}"/>
-        <text x="${width/2}" y="${height/2 - 10}" text-anchor="middle" fill="white" font-size="16" font-weight="bold">IMAGE</text>
-        <text x="${width/2}" y="${height/2 + 10}" text-anchor="middle" fill="white" font-size="12">${filename}</text>
+        <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${adjustColor(color, -30)};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="${width}" height="${height}" fill="url(#grad)"/>
+        <circle cx="${width/2}" cy="${height/2 - 15}" r="20" fill="white" opacity="0.8"/>
+        <rect x="${width/2 - 12}" y="${height/2 + 5}" width="24" height="3" fill="white" opacity="0.8" rx="1"/>
+        <rect x="${width/2 - 8}" y="${height/2 + 10}" width="16" height="3" fill="white" opacity="0.6" rx="1"/>
+        <text x="${width/2}" y="${height - 15}" text-anchor="middle" fill="white" font-size="10" opacity="0.9">${filename}</text>
       </svg>`;
 
       return 'data:image/svg+xml;base64,' + btoa(svg);
+    }
+
+    // Helper function to adjust color brightness
+    function adjustColor(color, amount) {
+      const usePound = color[0] === '#';
+      const col = usePound ? color.slice(1) : color;
+
+      const num = parseInt(col, 16);
+      let r = (num >> 16) + amount;
+      let g = (num >> 8 & 0x00FF) + amount;
+      let b = (num & 0x0000FF) + amount;
+
+      r = r > 255 ? 255 : r < 0 ? 0 : r;
+      g = g > 255 ? 255 : g < 0 ? 0 : g;
+      b = b > 255 ? 255 : b < 0 ? 0 : b;
+
+      return (usePound ? '#' : '') + (r << 16 | g << 8 | b).toString(16);
     }
 
     // Initialize
