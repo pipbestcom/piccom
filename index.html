@@ -542,6 +542,9 @@
         const imagesFolder = document.querySelector('[data-path="images/"]');
         if (imagesFolder) {
           imagesFolder.classList.add('selected');
+          // Set initial path and render images
+          currentPath = 'images/';
+          renderImages();
           // Auto-expand the images folder
           const children = imagesFolder.querySelector('.tree-children');
           if (children) {
@@ -626,6 +629,8 @@
     }
 
     function selectFolder(element, path) {
+      console.log('Selecting folder:', path);
+
       // Remove previous selection
       document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
 
@@ -634,6 +639,7 @@
 
       // Set current path and render images
       currentPath = path;
+      console.log('Current path set to:', currentPath);
       renderImages();
 
       // Toggle expanded state
@@ -661,7 +667,10 @@
     }
 
     function renderImages() {
+      console.log('Rendering images for path:', currentPath);
+
       if (isLoading || !directoryData) {
+        console.log('Still loading or no directoryData');
         const loadingHtml = '<div class="loading"><div class="spinner"></div>加载文件...</div>';
         gridView.innerHTML = loadingHtml;
         listView.innerHTML = loadingHtml;
@@ -669,7 +678,10 @@
       }
 
       const folderData = getFolderData(currentPath);
+      console.log('Folder data result:', folderData);
+
       if (!folderData || folderData.type !== 'folder') {
+        console.log('No valid folder data or not a folder');
         gridView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
         listView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
         return;
@@ -831,19 +843,28 @@
     }
 
     function getFolderData(path) {
-      if (!directoryData) return null;
+      console.log('getFolderData called with path:', path);
+      if (!directoryData) {
+        console.log('No directoryData available');
+        return null;
+      }
 
       const parts = path.split('/').filter(p => p);
+      console.log('Path parts:', parts);
       let current = directoryData;
 
       for (const part of parts) {
+        console.log('Looking for part:', part, 'in current:', Object.keys(current));
         if (current[part] && current[part].type === 'folder') {
           current = current[part].children;
+          console.log('Found folder, moving to children');
         } else {
+          console.log('Part not found or not a folder:', part);
           return null;
         }
       }
 
+      console.log('Returning folder data with children:', Object.keys(current));
       return { type: 'folder', children: current };
     }
 
