@@ -38,10 +38,15 @@ else
     echo "ℹ️ 没有发现新的更改"
 fi
 
-# 推送到GitHub
-echo "📤 推送到GitHub..."
-git push origin main
+# 同步远程更改并推送到GitHub
+echo "📤 同步并推送到GitHub..."
+git pull origin main --rebase
+if [ $? -ne 0 ]; then
+    echo "❌ 拉取远程更改失败"
+    exit 1
+fi
 
+git push origin main
 if [ $? -ne 0 ]; then
     echo "❌ 推送失败"
     exit 1
