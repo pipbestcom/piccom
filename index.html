@@ -629,8 +629,6 @@
     }
 
     function selectFolder(element, path) {
-      console.log('Selecting folder:', path);
-
       // Remove previous selection
       document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
 
@@ -639,7 +637,6 @@
 
       // Set current path and render images
       currentPath = path;
-      console.log('Current path set to:', currentPath);
       renderImages();
 
       // Toggle expanded state
@@ -667,10 +664,7 @@
     }
 
     function renderImages() {
-      console.log('Rendering images for path:', currentPath);
-
       if (isLoading || !directoryData) {
-        console.log('Still loading or no directoryData');
         const loadingHtml = '<div class="loading"><div class="spinner"></div>加载文件...</div>';
         gridView.innerHTML = loadingHtml;
         listView.innerHTML = loadingHtml;
@@ -678,10 +672,7 @@
       }
 
       const folderData = getFolderData(currentPath);
-      console.log('Folder data result:', folderData);
-
       if (!folderData || folderData.type !== 'folder') {
-        console.log('No valid folder data or not a folder');
         gridView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
         listView.innerHTML = '<div style="color: var(--muted); padding: 40px; text-align: center;">此目录为空</div>';
         return;
@@ -843,28 +834,20 @@
     }
 
     function getFolderData(path) {
-      console.log('getFolderData called with path:', path);
-      if (!directoryData) {
-        console.log('No directoryData available');
-        return null;
-      }
+      if (!directoryData) return null;
 
       // Handle root path
       if (!path || path === '') {
-        console.log('Returning root directory data');
         return { type: 'folder', children: directoryData };
       }
 
       // Ensure path ends with '/' for folder lookup
       const folderPath = path.endsWith('/') ? path : path + '/';
-      console.log('Looking for folder path:', folderPath);
 
       if (directoryData[folderPath] && directoryData[folderPath].type === 'folder') {
-        console.log('Found folder, returning children:', Object.keys(directoryData[folderPath].children));
         return { type: 'folder', children: directoryData[folderPath].children };
       }
 
-      console.log('Folder not found for path:', folderPath);
       return null;
     }
 
