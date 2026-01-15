@@ -492,6 +492,7 @@
         directoryData = await response.json();
         isLoading = false;
         renderDirectoryTree();
+        setInitialSelection();
         renderImages();
       } catch (error) {
         console.error('Error loading directory data:', error);
@@ -505,6 +506,22 @@
       setupEventListeners();
       loadDirectoryData();
     });
+
+    // Set initial folder selection after data loads
+    function setInitialSelection() {
+      if (directoryData && directoryData['images/']) {
+        const imagesFolder = document.querySelector('[data-path="images/"]');
+        if (imagesFolder) {
+          imagesFolder.classList.add('selected');
+          // Auto-expand the images folder
+          const children = imagesFolder.querySelector('.tree-children');
+          if (children) {
+            children.classList.add('expanded');
+            imagesFolder.classList.add('expanded');
+          }
+        }
+      }
+    }
 
     function setupEventListeners() {
       // View toggle
@@ -551,7 +568,10 @@
             <div class="tree-icon folder"></div>
             <span>${name}</span>
           `;
-          itemElement.addEventListener('click', () => toggleFolder(itemElement, itemPath));
+          itemElement.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectFolder(itemElement, itemPath);
+          });
         } else if (item.type === 'image') {
           itemElement.innerHTML = `
             <div class="tree-icon image"></div>
@@ -576,7 +596,18 @@
       }
     }
 
-    function toggleFolder(element, path) {
+    function selectFolder(element, path) {
+      // Remove previous selection
+      document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
+
+      // Add selection to current folder
+      element.classList.add('selected');
+
+      // Set current path and render images
+      currentPath = path;
+      renderImages();
+
+      // Toggle expanded state
       const children = element.querySelector('.tree-children');
       const isExpanded = children.classList.contains('expanded');
 
@@ -586,8 +617,6 @@
       } else {
         children.classList.add('expanded');
         element.classList.add('expanded');
-        currentPath = path;
-        renderImages();
       }
     }
 
