@@ -595,8 +595,8 @@
         <button class="btn" id="export-btn">
           📊 导出CSV
         </button>
-        <button class="btn" id="refresh-btn">
-          🔄 刷新
+        <button class="btn" id="search-btn">
+          � 查询
         </button>
       </div>
 
@@ -637,7 +637,7 @@
     const gridViewBtn = document.getElementById('grid-view-btn');
     const listViewBtn = document.getElementById('list-view-btn');
     const exportBtn = document.getElementById('export-btn');
-    const refreshBtn = document.getElementById('refresh-btn');
+    const searchBtn = document.getElementById('search-btn');
     const treeSearchInput = document.getElementById('tree-search');
     const fileSearchInput = document.getElementById('file-search');
     const currentPathEl = document.getElementById('current-path');
@@ -1090,10 +1090,13 @@
       // Export
       exportBtn.addEventListener('click', exportToCSV);
 
-      // Refresh
-      refreshBtn.addEventListener('click', () => {
-        loadDirectoryData();
-      });
+      // Search button
+      if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+          currentPage = 1; // Reset to first page when searching
+          renderImages();
+        });
+      }
 
       // Tree search
       if (treeSearchInput) {
