@@ -287,6 +287,11 @@
       color: white;
     }
 
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     /* Buttons */
     .btn {
       padding: 8px 16px;
@@ -566,6 +571,7 @@
         <div id="current-path" style="flex: 1; min-width: 120px; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
         <button class="btn" id="sidebar-toggle" style="display:none;">☰ 目录</button>
         <div style="display: flex; align-items: center; gap: 8px;">
+          <input id="file-search" type="text" placeholder="搜索文件名..." style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); outline: none; width: 150px;">
           <select id="sort-select" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); outline: none;">
             <option value="name">文件名</option>
             <option value="original_name">原始文件名</option>
@@ -599,6 +605,7 @@
         <div class="list-view" id="list-view"></div>
       </div>
     </div>
+    <div id="pagination-container"></div>
   </div>
 
   <!-- Image Preview Modal -->
@@ -632,6 +639,7 @@
     const exportBtn = document.getElementById('export-btn');
     const refreshBtn = document.getElementById('refresh-btn');
     const treeSearchInput = document.getElementById('tree-search');
+    const fileSearchInput = document.getElementById('file-search');
     const currentPathEl = document.getElementById('current-path');
     const sidebarToggleBtn = document.getElementById('sidebar-toggle');
     const sidebarBackdrop = document.getElementById('sidebar-backdrop');
@@ -652,6 +660,8 @@
     const imageDimensionCache = new Map();
 
     let githubConfig = null;
+    let currentPage = 1;
+    const itemsPerPage = 50;
 
     function normalizePath(p) {
       if (typeof p !== 'string') return '';
@@ -1129,10 +1139,23 @@
       // Add event listeners for sort controls
     if (sortSelect && sortOrderSelect) {
       const handleSortChange = () => {
+        currentPage = 1; // Reset to first page when sorting changes
         renderImages();
       };
       sortSelect.addEventListener('change', handleSortChange);
       sortOrderSelect.addEventListener('change', handleSortChange);
+    }
+
+    // Add event listener for file search
+    if (fileSearchInput) {
+      let searchTimeout;
+      fileSearchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          currentPage = 1; // Reset to first page when searching
+          renderImages();
+        }, 300);
+      });
     }
 
     // Modal
@@ -1308,6 +1331,9 @@
       sortSelect.value = 'name';
       sortOrderSelect.value = 'asc';
       
+      // Reset pagination when switching folders
+      currentPage = 1;
+      
       renderImages();
     }
 
@@ -1344,7 +1370,18 @@
       // Apply sorting
       const sortBy = document.getElementById('sort-select').value;
       const sortOrder = document.getElementById('sort-order').value;
-      const sortedFiles = [...allFiles].sort(([nameA, itemA], [nameB, itemB]) => {
+      const searchQuery = fileSearchInput ? fileSearchInput.value.trim().toLowerCase() : '';
+      
+      let filteredFiles = allFiles;
+      if (searchQuery) {
+        filteredFiles = allFiles.filter(([name, item]) => {
+          const fileName = name.toLowerCase();
+          const originalName = (item.original_name || '').toLowerCase();
+          return fileName.includes(searchQuery) || originalName.includes(searchQuery);
+        });
+      }
+      
+      const sortedFiles = [...filteredFiles].sort(([nameA, itemA], [nameB, itemB]) => {
         let compareValue = 0;
         if (sortBy === 'name') {
           compareValue = nameA.localeCompare(nameB);
@@ -1364,9 +1401,16 @@
         return sortOrder === 'desc' ? -compareValue : compareValue;
       });
 
+      // Apply pagination
+      const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
+      if (currentPage > totalPages) currentPage = 1;
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedFiles = sortedFiles.slice(startIndex, endIndex);
+
       // Grid view
       gridView.innerHTML = '';
-      sortedFiles.forEach(([name, item]) => {
+      paginatedFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'grid-item';
 
@@ -1411,7 +1455,7 @@
 
       // List view
       listView.innerHTML = '';
-      sortedFiles.forEach(([name, item]) => {
+      paginatedFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'image-item';
 
@@ -1468,6 +1512,86 @@
 
         listView.appendChild(itemElement);
       });
+
+      // Render pagination controls
+      renderPaginationControls(totalPages, filteredFiles.length);
+    }
+
+    function renderPaginationControls(totalPages, totalItems) {
+      const paginationContainer = document.getElementById('pagination-container');
+      if (!paginationContainer) return;
+
+      if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+      }
+
+      let paginationHtml = '<div style="display: flex; align-items: center; gap: 8px; padding: 16px; justify-content: center; flex-wrap: wrap;">';
+      
+      // Previous button
+      paginationHtml += `<button class="btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+      
+      // Page numbers
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      if (startPage > 1) {
+        paginationHtml += `<button class="btn" onclick="changePage(1)">1</button>`;
+        if (startPage > 2) {
+          paginationHtml += '<span style="color: var(--muted);">...</span>';
+        }
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        paginationHtml += `<button class="btn ${isActive ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
+      }
+      
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          paginationHtml += '<span style="color: var(--muted);">...</span>';
+        }
+        paginationHtml += `<button class="btn" onclick="changePage(${totalPages})">${totalPages}</button>`;
+      }
+      
+      // Next button
+      paginationHtml += `<button class="btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+      
+      // Page info
+      const startItem = (currentPage - 1) * itemsPerPage + 1;
+      const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+      paginationHtml += `<span style="color: var(--muted); margin-left: 16px;">显示 ${startItem}-${endItem} / 共 ${totalItems} 项</span>`;
+      
+      paginationHtml += '</div>';
+      paginationContainer.innerHTML = paginationHtml;
+    }
+
+    function changePage(page) {
+      if (page < 1) return;
+      const folderData = getFolderData(currentPath);
+      if (!folderData || folderData.type !== 'folder') return;
+      
+      const allFiles = Object.entries(folderData.children);
+      const searchQuery = fileSearchInput ? fileSearchInput.value.trim().toLowerCase() : '';
+      let filteredFiles = allFiles;
+      if (searchQuery) {
+        filteredFiles = allFiles.filter(([name, item]) => {
+          const fileName = name.toLowerCase();
+          const originalName = (item.original_name || '').toLowerCase();
+          return fileName.includes(searchQuery) || originalName.includes(searchQuery);
+        });
+      }
+      
+      const totalPages = Math.ceil(filteredFiles.length / itemsPerPage);
+      if (page > totalPages) return;
+      
+      currentPage = page;
+      renderImages();
     }
 
     function getFileIcon(filename) {
