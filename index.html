@@ -627,23 +627,37 @@
         headers['Authorization'] = `Bearer ${config.token}`;
       }
 
+      console.log('Loading GitHub data for:', config.owner, config.repo, config.ref);
+
       const commitUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/commits/${encodeURIComponent(config.ref)}`;
+      console.log('Fetching commit:', commitUrl);
+      
       const commitRes = await fetch(commitUrl, { headers });
       if (!commitRes.ok) {
         const text = await commitRes.text();
+        console.error('GitHub commit request failed:', commitRes.status, text);
         throw new Error(`GitHub commit request failed: ${commitRes.status} ${text}`);
       }
       const commitJson = await commitRes.json();
       const sha = commitJson && commitJson.sha;
-      if (!sha) throw new Error('GitHub commit response missing sha');
+      if (!sha) {
+        console.error('GitHub commit response missing sha:', commitJson);
+        throw new Error('GitHub commit response missing sha');
+      }
+      console.log('Got commit SHA:', sha);
 
       const treeUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/git/trees/${encodeURIComponent(sha)}?recursive=1`;
+      console.log('Fetching tree:', treeUrl);
+      
       const treeRes = await fetch(treeUrl, { headers });
       if (!treeRes.ok) {
         const text = await treeRes.text();
+        console.error('GitHub tree request failed:', treeRes.status, text);
         throw new Error(`GitHub tree request failed: ${treeRes.status} ${text}`);
       }
       const treeJson = await treeRes.json();
+      console.log('Got tree with', treeJson.tree ? treeJson.tree.length : 0, 'items');
+      
       return buildDirectoryDataFromGitHubTree(treeJson, config);
     }
 
@@ -1106,7 +1120,7 @@
       }
 
       // 显示文件信息模态框
-      modalImage.src = 'data:image/svg+xml;base64,' + btoa(`
+      const svgContent = `
         <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
           <rect width="400" height="300" fill="#f0f0f0"/>
           <text x="200" y="120" text-anchor="middle" font-size="48">${fileIcon}</text>
@@ -1114,7 +1128,8 @@
           <text x="200" y="200" text-anchor="middle" font-size="12" fill="#999">${filename}</text>
           ${canPreview ? '<text x="200" y="240" text-anchor="middle" font-size="12" fill="#007acc">点击查看内容</text>' : ''}
         </svg>
-      `);
+      `;
+      modalImage.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgContent)));
 
       modalInfo.innerHTML = `
         <strong>${filename}</strong><br>
