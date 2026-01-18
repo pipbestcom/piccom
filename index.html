@@ -665,6 +665,8 @@
       const output = {};
       const tree = Array.isArray(treeJson && treeJson.tree) ? treeJson.tree : [];
 
+      console.log('Tree data:', treeJson);
+
       function ensureFolder(parent, folderName) {
         const key = folderName + '/';
         if (!parent[key]) {
@@ -674,6 +676,7 @@
       }
 
       for (const entry of tree) {
+        console.log('Processing entry:', entry);
         if (!entry || entry.type !== 'blob' || typeof entry.path !== 'string') continue;
         if (config.root && !entry.path.startsWith(config.root)) continue;
 
@@ -709,6 +712,7 @@
         }
       }
 
+      console.log('Final directory data:', output);
       return output;
     }
 
