@@ -565,6 +565,18 @@
       <div class="toolbar">
         <div id="current-path" style="flex: 1; min-width: 120px; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
         <button class="btn" id="sidebar-toggle" style="display:none;">☰ 目录</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select id="sort-select" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); outline: none;">
+            <option value="name">文件名</option>
+            <option value="original_name">原始文件名</option>
+            <option value="upload_time">上传时间</option>
+            <option value="size">文件大小</option>
+          </select>
+          <select id="sort-order" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); outline: none;">
+            <option value="asc">升序</option>
+            <option value="desc">降序</option>
+          </select>
+        </div>
         <div class="view-toggle">
           <button class="view-btn active" data-view="grid" id="grid-view-btn">
             🖼️ 预览
@@ -631,6 +643,8 @@
     const closeModalBtn = document.getElementById('close-modal-btn');
     const openLinkBtn = document.getElementById('open-link-btn');
     const downloadBtn = document.getElementById('download-btn');
+    const sortSelect = document.getElementById('sort-select');
+    const sortOrderSelect = document.getElementById('sort-order');
 
     let currentModalUrl = '';
     let currentModalCleanup = null;
@@ -789,14 +803,18 @@
             size: sizeText,
             dimensions: '未知',
             path: relativePath,
-            url: resolvedUrl
+            url: resolvedUrl,
+            original_name: f.original_name || '',
+            upload_time: f.upload_time || ''
           };
         } else {
           current[name] = {
             type: 'file',
             size: sizeText,
             path: relativePath,
-            url: resolvedUrl
+            url: resolvedUrl,
+            original_name: f.original_name || '',
+            upload_time: f.upload_time || ''
           };
         }
       }
@@ -917,14 +935,18 @@
             size: formatBytes(entry.size),
             dimensions: '未知',
             path: relativePath,
-            url: rawUrl
+            url: rawUrl,
+            original_name: '',
+            upload_time: ''
           };
         } else {
           current[name] = {
             type: 'file',
             size: formatBytes(entry.size),
             path: relativePath,
-            url: rawUrl
+            url: rawUrl,
+            original_name: '',
+            upload_time: ''
           };
         }
       }
@@ -1104,7 +1126,16 @@
         });
       }
 
-      // Modal
+      // Add event listeners for sort controls
+    if (sortSelect && sortOrderSelect) {
+      const handleSortChange = () => {
+        renderImages();
+      };
+      sortSelect.addEventListener('change', handleSortChange);
+      sortOrderSelect.addEventListener('change', handleSortChange);
+    }
+
+    // Modal
       closeModalBtn.addEventListener('click', () => {
         if (typeof currentModalCleanup === 'function') {
           try { currentModalCleanup(); } catch (e) {}
@@ -1272,6 +1303,11 @@
       if (currentPathEl) {
         currentPathEl.textContent = currentPath ? `当前路径: ${currentPath}` : '当前路径: /';
       }
+      
+      // Reset sort to default when switching folders
+      sortSelect.value = 'name';
+      sortOrderSelect.value = 'asc';
+      
       renderImages();
     }
 
@@ -1305,9 +1341,32 @@
 
       const allFiles = Object.entries(folderData.children);
 
+      // Apply sorting
+      const sortBy = document.getElementById('sort-select').value;
+      const sortOrder = document.getElementById('sort-order').value;
+      const sortedFiles = [...allFiles].sort(([nameA, itemA], [nameB, itemB]) => {
+        let compareValue = 0;
+        if (sortBy === 'name') {
+          compareValue = nameA.localeCompare(nameB);
+        } else if (sortBy === 'original_name') {
+          const originalA = itemA.original_name || nameA;
+          const originalB = itemB.original_name || nameB;
+          compareValue = originalA.localeCompare(originalB);
+        } else if (sortBy === 'upload_time') {
+          const timeA = itemA.upload_time ? new Date(itemA.upload_time).getTime() : 0;
+          const timeB = itemB.upload_time ? new Date(itemB.upload_time).getTime() : 0;
+          compareValue = timeA - timeB;
+        } else if (sortBy === 'size') {
+          const sizeA = itemA.size || 0;
+          const sizeB = itemB.size || 0;
+          compareValue = sizeA - sizeB;
+        }
+        return sortOrder === 'desc' ? -compareValue : compareValue;
+      });
+
       // Grid view
       gridView.innerHTML = '';
-      allFiles.forEach(([name, item]) => {
+      sortedFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'grid-item';
 
@@ -1319,6 +1378,8 @@
             <div class="grid-info">
               <div class="grid-name">${name}</div>
               <div class="grid-meta">${item.size} · <span class="grid-dimensions">${item.dimensions}</span></div>
+              ${item.original_name ? `<div class="grid-original">原始: ${item.original_name}</div>` : ''}
+              ${item.upload_time ? `<div class="grid-time">${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
             </div>
           `;
           const imgEl = itemElement.querySelector('img.grid-image');
@@ -1338,6 +1399,8 @@
               <div class="grid-meta">${item.size || '文件'}
                 ${canPreview ? '<br><small style="color: #007acc;">可预览</small>' : ''}
               </div>
+              ${item.original_name ? `<div class="grid-original">原始: ${item.original_name}</div>` : ''}
+              ${item.upload_time ? `<div class="grid-time">${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
             </div>
           `;
           itemElement.addEventListener('click', () => showFileInfo(joinPath(currentPath, name), item));
@@ -1348,7 +1411,7 @@
 
       // List view
       listView.innerHTML = '';
-      allFiles.forEach(([name, item]) => {
+      sortedFiles.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'image-item';
 
@@ -1364,6 +1427,8 @@
                 <span>大小: ${item.size}</span>
                 <span>尺寸: <span class="list-dimensions">${item.dimensions}</span></span>
                 <span>路径: ${fullPath}</span>
+                ${item.original_name ? `<span>原始名: ${item.original_name}</span>` : ''}
+                ${item.upload_time ? `<span>上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
               </div>
             </div>
             <div class="image-actions">
@@ -1389,6 +1454,8 @@
                 <span>大小: ${item.size || '未知'}</span>
                 <span>类型: ${getFileType(name)}</span>
                 <span>路径: ${fullPath}</span>
+                ${item.original_name ? `<span>原始名: ${item.original_name}</span>` : ''}
+                ${item.upload_time ? `<span>上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
               </div>
             </div>
             <div class="image-actions">
@@ -1553,6 +1620,12 @@
       const modalImage = document.getElementById('modal-image');
       const modalInfo = document.getElementById('modal-info');
 
+      // 清理之前的预览内容
+      if (currentModalCleanup) {
+        currentModalCleanup();
+        currentModalCleanup = null;
+      }
+
       // 创建文件内容预览
       const maxLength = 5000; // 限制预览长度
       const truncated = content.length > maxLength;
@@ -1563,10 +1636,10 @@
       let languageClass = '';
       switch (fileExt) {
         case 'js': languageClass = 'language-javascript'; break;
-        case 'json': languageClass = 'language-json'; break;
         case 'css': languageClass = 'language-css'; break;
         case 'html': languageClass = 'language-html'; break;
         case 'xml': languageClass = 'language-xml'; break;
+        case 'json': languageClass = 'language-json'; break;
         case 'md': languageClass = 'language-markdown'; break;
         default: languageClass = 'language-plaintext';
       }
@@ -1593,6 +1666,10 @@
 
       // 替换模态框内容
       const modalContent = modal.querySelector('.modal-content');
+      // 确保 modalInfo 是 modalContent 的子节点，如果不是，重新插入
+      if (!modalContent.contains(modalInfo)) {
+        modalContent.appendChild(modalInfo);
+      }
       modalContent.insertBefore(contentContainer, modalInfo);
 
       modalInfo.innerHTML = `
@@ -1748,14 +1825,15 @@
 
       const allFiles = Object.entries(folderData.children);
 
-      let csvContent = "文件名,原始文件名,路径,类型,大小,尺寸/格式,URL\n";
+      let csvContent = "文件名,原始文件名,路径,类型,大小,尺寸/格式,上传时间,URL\n";
       allFiles.forEach(([name, item]) => {
         const fileType = item.type === 'image' ? '图片' : getFileType(name);
         const sizeOrFormat = item.type === 'image' ? item.dimensions : item.size;
         const fullPath = joinPath(currentPath, name);
         const url = resolveItemUrl(item);
         const originalName = item.original_name || name;
-        csvContent += `"${name}","${originalName}","${fullPath}","${fileType}","${item.size}","${sizeOrFormat}","${url}"\n`;
+        const uploadTime = item.upload_time ? new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+        csvContent += `"${name}","${originalName}","${fullPath}","${fileType}","${item.size}","${sizeOrFormat}","${uploadTime}","${url}"\n`;
       });
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

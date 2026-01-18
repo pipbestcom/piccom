@@ -340,17 +340,20 @@ function getCommitMessageForFile($owner, $repo, $path, $ref = null, $token = nul
     list($httpCode, $response) = sendGitHubRequest($url, [], 'GET', $token);
 
     if ($httpCode !== 200) {
-        return '';
+        return ['message' => '', 'date' => ''];
     }
 
     $commits = json_decode($response, true);
     if (!is_array($commits) || empty($commits)) {
-        return '';
+        return ['message' => '', 'date' => ''];
     }
 
-    // 取最新 commit 的 message
+    // 取最新 commit 的 message 和 date
     $latestCommit = $commits[0];
-    return $latestCommit['commit']['message'] ?? '';
+    return [
+        'message' => $latestCommit['commit']['message'] ?? '',
+        'date' => $latestCommit['commit']['committer']['date'] ?? ''
+    ];
 }
 
 function listFilesRecursive($owner, $repo, $path, $ref = null, $token = null) {
@@ -385,13 +388,14 @@ function listFilesRecursive($owner, $repo, $path, $ref = null, $token = null) {
             if (!isset($item['name']) || !isAllowedFilename($item['name'])) {
                 continue;
             }
-            // 尝试从 commit message 提取原始文件名
-            $commitMsg = getCommitMessageForFile($owner, $repo, $item['path'], $ref, $token);
-            $originalName = extractOriginalNameFromCommitMessage($commitMsg);
+            // 尝试从 commit message 提取原始文件名和上传时间
+            $commitData = getCommitMessageForFile($owner, $repo, $item['path'], $ref, $token);
+            $originalName = extractOriginalNameFromCommitMessage($commitData['message']);
             $files[] = [
                 'type' => 'file',
                 'name' => $item['name'] ?? '',
                 'original_name' => $originalName ?: '',
+                'upload_time' => $commitData['date'] ?: '',
                 'path' => $item['path'] ?? '',
                 'sha' => $item['sha'] ?? '',
                 'size' => $item['size'] ?? 0,
