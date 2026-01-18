@@ -582,21 +582,146 @@
     const copyLinkBtn = document.getElementById('copy-link-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
 
+    let githubConfig = null;
+
+    function getGithubConfigFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const owner = params.get('owner');
+      const repo = params.get('repo');
+      if (!owner || !repo) return null;
+
+      const ref = params.get('ref') || 'main';
+      const root = params.get('root') || '';
+      const rootNormalized = root ? root.replace(/^\/+/, '').replace(/\/+$/, '') + '/' : '';
+
+      const token = params.get('token') || '';
+
+      return { owner, repo, ref, root: rootNormalized, token };
+    }
+
+    function formatBytes(bytes) {
+      if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '未知';
+      if (bytes < 1024) return `${bytes}B`;
+      const kb = bytes / 1024;
+      if (kb < 1024) return `${kb.toFixed(1)}KB`;
+      const mb = kb / 1024;
+      if (mb < 1024) return `${mb.toFixed(1)}MB`;
+      const gb = mb / 1024;
+      return `${gb.toFixed(2)}GB`;
+    }
+
+    function isAbsoluteUrl(url) {
+      return typeof url === 'string' && /^https?:\/\//i.test(url);
+    }
+
+    function resolveItemUrl(item) {
+      if (!item || !item.url) return '';
+      return isAbsoluteUrl(item.url) ? item.url : `./${item.url}`;
+    }
+
+    async function loadDirectoryDataFromGitHub(config) {
+      const headers = {
+        'Accept': 'application/vnd.github+json'
+      };
+      if (config.token) {
+        headers['Authorization'] = `Bearer ${config.token}`;
+      }
+
+      const commitUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/commits/${encodeURIComponent(config.ref)}`;
+      const commitRes = await fetch(commitUrl, { headers });
+      if (!commitRes.ok) {
+        const text = await commitRes.text();
+        throw new Error(`GitHub commit request failed: ${commitRes.status} ${text}`);
+      }
+      const commitJson = await commitRes.json();
+      const sha = commitJson && commitJson.sha;
+      if (!sha) throw new Error('GitHub commit response missing sha');
+
+      const treeUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/git/trees/${encodeURIComponent(sha)}?recursive=1`;
+      const treeRes = await fetch(treeUrl, { headers });
+      if (!treeRes.ok) {
+        const text = await treeRes.text();
+        throw new Error(`GitHub tree request failed: ${treeRes.status} ${text}`);
+      }
+      const treeJson = await treeRes.json();
+      return buildDirectoryDataFromGitHubTree(treeJson, config);
+    }
+
+    function buildDirectoryDataFromGitHubTree(treeJson, config) {
+      const output = {};
+      const tree = Array.isArray(treeJson && treeJson.tree) ? treeJson.tree : [];
+
+      function ensureFolder(parent, folderName) {
+        const key = folderName + '/';
+        if (!parent[key]) {
+          parent[key] = { type: 'folder', children: {} };
+        }
+        return parent[key].children;
+      }
+
+      for (const entry of tree) {
+        if (!entry || entry.type !== 'blob' || typeof entry.path !== 'string') continue;
+        if (config.root && !entry.path.startsWith(config.root)) continue;
+
+        const relativePath = config.root ? entry.path.slice(config.root.length) : entry.path;
+        const parts = relativePath.split('/').filter(Boolean);
+        if (parts.length === 0) continue;
+
+        let current = output;
+        for (let i = 0; i < parts.length - 1; i++) {
+          current = ensureFolder(current, parts[i]);
+        }
+
+        const name = parts[parts.length - 1];
+        const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
+        const rawUrl = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.ref}/${entry.path}`;
+
+        if (isImage) {
+          current[name] = {
+            type: 'image',
+            size: formatBytes(entry.size),
+            dimensions: '未知',
+            path: relativePath,
+            url: rawUrl
+          };
+        } else {
+          current[name] = {
+            type: 'file',
+            size: formatBytes(entry.size),
+            path: relativePath,
+            url: rawUrl
+          };
+        }
+      }
+
+      return output;
+    }
+
     // Load directory data
     async function loadDirectoryData() {
       try {
-        const response = await fetch('./directory-data.json');
-        if (!response.ok) {
-          throw new Error('Failed to load directory data');
+        githubConfig = getGithubConfigFromUrl();
+        if (githubConfig) {
+          directoryData = await loadDirectoryDataFromGitHub(githubConfig);
+        } else {
+          const response = await fetch('./directory-data.json');
+          if (!response.ok) {
+            throw new Error('Failed to load directory data');
+          }
+          directoryData = await response.json();
         }
-        directoryData = await response.json();
         isLoading = false;
         renderDirectoryTree();
         setInitialSelection();
         renderImages();
       } catch (error) {
         console.error('Error loading directory data:', error);
-        directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载目录数据失败<br>请确保已运行目录扫描脚本</div>';
+        if (githubConfig) {
+          directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载 GitHub 数据失败<br>可能原因：仓库/分支不存在、触发 GitHub API 限流（无 token 时较常见）、或仓库为私有<br><small style="color: var(--muted);">可在 URL 追加 token 参数提升额度：?owner=...&repo=...&ref=...&token=YOUR_TOKEN</small></div>';
+        } else {
+          directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载目录数据失败<br>请确保已运行目录扫描脚本</div>';
+        }
         isLoading = false;
       }
     }
@@ -649,20 +774,36 @@
 
     // Set initial folder selection after data loads
     function setInitialSelection() {
-      if (directoryData && directoryData['images/']) {
-        const imagesFolder = document.querySelector('[data-path="images/"]');
-        if (imagesFolder) {
-          imagesFolder.classList.add('selected');
-          // Set initial path and render images
-          currentPath = 'images/';
-          renderImages();
-          // Auto-expand the images folder
-          const children = imagesFolder.querySelector('.tree-children');
-          if (children) {
-            children.classList.add('expanded');
-            imagesFolder.classList.add('expanded');
-          }
-        }
+      if (!directoryData) return;
+
+      let initialPath = '';
+      if (directoryData['images/']) {
+        initialPath = 'images/';
+      } else {
+        const firstFolderKey = Object.keys(directoryData).find(k => k.endsWith('/') && directoryData[k] && directoryData[k].type === 'folder');
+        if (firstFolderKey) initialPath = firstFolderKey;
+      }
+
+      if (!initialPath) {
+        currentPath = '';
+        renderImages();
+        return;
+      }
+
+      const initialFolder = document.querySelector(`[data-path="${initialPath}"]`);
+      if (!initialFolder) {
+        currentPath = initialPath;
+        renderImages();
+        return;
+      }
+
+      initialFolder.classList.add('selected');
+      currentPath = initialPath;
+      renderImages();
+      const children = initialFolder.querySelector('.tree-children');
+      if (children) {
+        children.classList.add('expanded');
+        initialFolder.classList.add('expanded');
       }
     }
 
@@ -724,7 +865,7 @@
             <div class="tree-icon image"></div>
             <span>${name}</span>
           `;
-          itemElement.addEventListener('click', () => selectImage(itemPath, item));
+          itemElement.addEventListener('click', (e) => selectImage(e, itemPath, item));
         } else {
           itemElement.innerHTML = `
             <div class="tree-expander no-children"></div>
@@ -770,12 +911,14 @@
       }
     }
 
-    function selectImage(path, item) {
+    function selectImage(e, path, item) {
       // Remove previous selection
       document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
 
       // Add selection to clicked item
-      event.currentTarget.classList.add('selected');
+      if (e && e.currentTarget) {
+        e.currentTarget.classList.add('selected');
+      }
 
       // Show image preview
       showImageModal(path, item);
@@ -805,7 +948,7 @@
         itemElement.className = 'grid-item';
 
         if (item.type === 'image') {
-          const imageUrl = `./${item.url}`;
+          const imageUrl = resolveItemUrl(item);
           const placeholderSvg = generateImagePlaceholder(name, 200, 150);
           itemElement.innerHTML = `
             <img class="grid-image" src="${imageUrl}" alt="${name}" onerror="this.src='${placeholderSvg}'">
@@ -843,7 +986,7 @@
         itemElement.className = 'image-item';
 
         if (item.type === 'image') {
-          const imageUrl = `./${item.url}`;
+          const imageUrl = resolveItemUrl(item);
           const placeholderSvg = generateImagePlaceholder(name, 60, 60);
           itemElement.innerHTML = `
             <img class="image-thumb" src="${imageUrl}" alt="${name}" onerror="this.src='${placeholderSvg}'">
@@ -951,7 +1094,7 @@
       if (canPreview) {
         try {
           // 尝试加载文件内容
-          const response = await fetch(`./${item.url}`);
+          const response = await fetch(resolveItemUrl(item));
           if (response.ok) {
             const content = await response.text();
             showFileContentModal(filename, fileType, content, path, item);
@@ -1089,7 +1232,7 @@
     }
 
     function showImageModal(path, item) {
-      const imageUrl = `./${item.url}`;
+      const imageUrl = resolveItemUrl(item);
       const filename = path.split('/').pop();
       const placeholderSvg = generateImagePlaceholder(filename, 800, 600);
 
@@ -1119,6 +1262,12 @@
         let item = null;
 
         for (const part of parts) {
+          const folderKey = part + '/';
+          if (current && current[folderKey] && current[folderKey].type === 'folder') {
+            current = current[folderKey].children;
+            continue;
+          }
+
           if (current && current[part]) {
             if (current[part].type === 'folder') {
               current = current[part].children;
@@ -1129,7 +1278,11 @@
         }
 
         if (item && item.url) {
-          linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + item.url;
+          if (isAbsoluteUrl(item.url)) {
+            linkToCopy = item.url;
+          } else {
+            linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + item.url;
+          }
         } else {
           linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + path;
         }
@@ -1150,7 +1303,7 @@
       const fileType = getFileType(filename);
 
       try {
-        const response = await fetch(`./${item.url}`);
+        const response = await fetch(resolveItemUrl(item));
         if (response.ok) {
           const content = await response.text();
           showFileContentModal(filename, fileType, content, path, item);
