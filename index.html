@@ -616,6 +616,19 @@
       return { owner: 'pipbestcom', repo: 'piccom', ref: 'main', root: '', token: '' };
     }
 
+    function isDefaultRepo(config) {
+      const def = getDefaultGithubConfig();
+      return !!config && config.owner === def.owner && config.repo === def.repo;
+    }
+
+    function getSiteBaseUrl() {
+      // Works for both custom domain root (/) and GitHub Pages subpath (/piccom/)
+      let basePath = window.location.pathname || '/';
+      basePath = basePath.replace(/index\.html$/i, '');
+      if (!basePath.endsWith('/')) basePath += '/';
+      return window.location.origin + basePath;
+    }
+
     function getServerApiBaseFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const api = params.get('api');
@@ -675,6 +688,8 @@
         const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
         const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
         const rawUrl = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.ref}/${fullPath}`;
+        const siteUrl = getSiteBaseUrl() + fullPath;
+        const resolvedUrl = isDefaultRepo(config) ? siteUrl : rawUrl;
         const sizeValue = typeof f.size === 'number' ? f.size : Number(f.size);
         const sizeText = formatBytes(Number.isFinite(sizeValue) ? sizeValue : NaN);
 
@@ -684,14 +699,14 @@
             size: sizeText,
             dimensions: '未知',
             path: relativePath,
-            url: rawUrl
+            url: resolvedUrl
           };
         } else {
           current[name] = {
             type: 'file',
             size: sizeText,
             path: relativePath,
-            url: rawUrl
+            url: resolvedUrl
           };
         }
       }
@@ -833,7 +848,9 @@
       try {
         githubConfig = getGithubConfigFromUrl();
         const effectiveGithubConfig = githubConfig || getDefaultGithubConfig();
-        if (effectiveGithubConfig) {
+        const shouldUseServerApi = !githubConfig || isDefaultRepo(effectiveGithubConfig);
+
+        if (shouldUseServerApi) {
           try {
             directoryData = await loadDirectoryDataFromServerApi(effectiveGithubConfig);
           } catch (e) {
@@ -841,19 +858,16 @@
             directoryData = await loadDirectoryDataFromGitHub(effectiveGithubConfig);
           }
         } else {
-          const response = await fetch('./directory-data.json');
-          if (!response.ok) {
-            throw new Error('Failed to load directory data');
-          }
-          directoryData = await response.json();
+          directoryData = await loadDirectoryDataFromGitHub(effectiveGithubConfig);
         }
+
         isLoading = false;
         renderDirectoryTree();
         setInitialSelection();
         renderImages();
       } catch (error) {
         console.error('Error loading directory data:', error);
-        if (githubConfig || true) {
+        if (githubConfig) {
           directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载 GitHub 数据失败<br>可能原因：服务端接口不可用 / GitHub Token 未配置 / 或 GitHub API 限流<br><small style="color: var(--muted);">如走服务端接口，请确保服务器环境变量已设置 GITHUB_TOKEN；或在 URL 追加 token 参数：?owner=...&repo=...&ref=...&token=YOUR_TOKEN</small></div>';
         } else {
           directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载目录数据失败<br>请确保已运行目录扫描脚本</div>';
