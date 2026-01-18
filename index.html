@@ -505,6 +505,9 @@
     <div class="sidebar">
       <div class="header">
         <div class="badge"><span class="dot"></span>目录树 / Directory Tree</div>
+        <div style="margin-top: 10px;">
+          <input id="tree-search" type="text" placeholder="搜索文件夹..." style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text); outline: none;" />
+        </div>
       </div>
       <div class="directory-tree" id="directory-tree">
         <div class="loading">
@@ -524,6 +527,7 @@
       </div>
 
       <div class="toolbar">
+        <div id="current-path" style="flex: 1; min-width: 120px; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
         <div class="view-toggle">
           <button class="view-btn active" data-view="grid" id="grid-view-btn">
             🖼️ 预览
@@ -557,6 +561,8 @@
         <div>
           <button class="btn" id="copy-link-btn">📋 复制链接</button>
           <button class="btn" id="close-modal-btn">✕ 关闭</button>
+          <button class="btn" id="open-link-btn">🔗 打开链接</button>
+          <button class="btn" id="download-btn">📥 下载</button>
         </div>
       </div>
     </div>
@@ -576,11 +582,18 @@
     const listViewBtn = document.getElementById('list-view-btn');
     const exportBtn = document.getElementById('export-btn');
     const refreshBtn = document.getElementById('refresh-btn');
+    const treeSearchInput = document.getElementById('tree-search');
+    const currentPathEl = document.getElementById('current-path');
     const imageModal = document.getElementById('image-modal');
     const modalImage = document.getElementById('modal-image');
     const modalInfo = document.getElementById('modal-info');
     const copyLinkBtn = document.getElementById('copy-link-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
+    const openLinkBtn = document.getElementById('open-link-btn');
+    const downloadBtn = document.getElementById('download-btn');
+
+    let currentModalUrl = '';
+    let currentModalCleanup = null;
 
     let githubConfig = null;
 
@@ -904,6 +917,7 @@
 
       if (!initialPath) {
         currentPath = '';
+        if (currentPathEl) currentPathEl.textContent = '当前路径: /';
         renderImages();
         return;
       }
@@ -911,12 +925,14 @@
       const initialFolder = document.querySelector(`[data-path="${initialPath}"]`);
       if (!initialFolder) {
         currentPath = initialPath;
+        if (currentPathEl) currentPathEl.textContent = `当前路径: ${currentPath}`;
         renderImages();
         return;
       }
 
       initialFolder.classList.add('selected');
       currentPath = initialPath;
+      if (currentPathEl) currentPathEl.textContent = `当前路径: ${currentPath}`;
       renderImages();
       const children = initialFolder.querySelector('.tree-children');
       if (children) {
@@ -938,9 +954,45 @@
         loadDirectoryData();
       });
 
+      // Tree search
+      if (treeSearchInput) {
+        treeSearchInput.addEventListener('input', () => {
+          renderDirectoryTree();
+        });
+      }
+
       // Modal
-      closeModalBtn.addEventListener('click', () => imageModal.classList.remove('active'));
+      closeModalBtn.addEventListener('click', () => {
+        if (typeof currentModalCleanup === 'function') {
+          try { currentModalCleanup(); } catch (e) {}
+        }
+        currentModalCleanup = null;
+        currentModalUrl = '';
+        imageModal.classList.remove('active');
+      });
       copyLinkBtn.addEventListener('click', copyImageLink);
+
+      if (openLinkBtn) {
+        openLinkBtn.addEventListener('click', () => {
+          const url = currentModalUrl || (modalImage && modalImage.src ? modalImage.src : '');
+          if (!url) return;
+          window.open(url, '_blank', 'noopener,noreferrer');
+        });
+      }
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+          const url = currentModalUrl || (modalImage && modalImage.src ? modalImage.src : '');
+          if (!url) return;
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = '';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
     }
 
     function renderDirectoryTree() {
@@ -955,7 +1007,34 @@
       }
 
       directoryTree.innerHTML = '';
-      renderTreeItem(directoryData, '', directoryTree, true);
+
+      const query = (treeSearchInput && treeSearchInput.value ? treeSearchInput.value.trim().toLowerCase() : '');
+      const filtered = filterFolderTreeData(directoryData, query);
+      renderTreeItem(filtered, '', directoryTree, true);
+    }
+
+    function filterFolderTreeData(data, query) {
+      if (!data || typeof data !== 'object') return {};
+      if (!query) {
+        return data;
+      }
+
+      const out = {};
+      for (const [name, item] of Object.entries(data)) {
+        if (!item || item.type !== 'folder' || !item.children) continue;
+        const folderName = String(name).replace('/', '').toLowerCase();
+        const childFiltered = filterFolderTreeData(item.children, query);
+        const hasChild = childFiltered && Object.keys(childFiltered).length > 0;
+        const selfMatch = folderName.includes(query);
+
+        if (selfMatch || hasChild) {
+          out[name] = {
+            type: 'folder',
+            children: childFiltered
+          };
+        }
+      }
+      return out;
     }
 
     function renderTreeItem(data, path, parent, isRoot = false, level = 0) {
@@ -977,19 +1056,8 @@
             e.stopPropagation();
             selectFolder(itemElement, itemPath);
           });
-        } else if (item.type === 'image') {
-          itemElement.innerHTML = `
-            <div class="tree-expander no-children"></div>
-            <div class="tree-icon image"></div>
-            <span>${name}</span>
-          `;
-          itemElement.addEventListener('click', (e) => selectImage(e, itemPath, item));
         } else {
-          itemElement.innerHTML = `
-            <div class="tree-expander no-children"></div>
-            <div class="tree-icon file"></div>
-            <span>${name}</span>
-          `;
+          continue;
         }
 
         if (item.type === 'folder') {
@@ -1014,6 +1082,9 @@
 
       // Set current path and render images
       currentPath = path;
+      if (currentPathEl) {
+        currentPathEl.textContent = currentPath ? `当前路径: ${currentPath}` : '当前路径: /';
+      }
       renderImages();
 
       // Toggle expanded state
@@ -1199,6 +1270,8 @@
       const filename = path.split('/').pop();
       const fileType = getFileType(filename);
       const fileIcon = getFileIcon(filename);
+      const url = resolveItemUrl(item);
+      currentModalUrl = url;
 
       const modal = document.getElementById('image-modal');
       const modalImage = document.getElementById('modal-image');
@@ -1210,7 +1283,7 @@
       const canPreview = previewableTypes.includes(fileExt);
 
       if (fileExt === 'pdf') {
-        showPdfModal(filename, fileType, resolveItemUrl(item), path, item);
+        showPdfModal(filename, fileType, url, path, item);
         return;
       }
 
@@ -1244,7 +1317,8 @@
         <strong>${filename}</strong><br>
         类型: ${fileType}<br>
         大小: ${item.size || '未知'}<br>
-        路径: ${path}
+        路径: ${path}<br>
+        <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #007acc;">打开文件</a>
         ${canPreview ? '<br><small style="color: #007acc;">此文件支持内容预览</small>' : ''}
       `;
 
@@ -1257,6 +1331,7 @@
       const modalInfo = document.getElementById('modal-info');
 
       modalImage.style.display = 'none';
+      currentModalUrl = url;
 
       const iframe = document.createElement('iframe');
       iframe.src = url;
@@ -1276,17 +1351,18 @@
         类型: ${fileType}<br>
         大小: ${item.size || '未知'}<br>
         路径: ${path}<br>
-        <small style="color: #007acc;">如无法预览，可点击复制链接后在新窗口打开</small>
+        <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #007acc;">新窗口打开</a>
+        <br><small style="color: #007acc;">如无法内嵌预览，请使用“新窗口打开”</small>
       `;
 
       modal.classList.add('active');
 
-      const closeHandler = () => {
-        modalContent.removeChild(iframe);
+      currentModalCleanup = () => {
+        if (iframe && iframe.parentNode === modalContent) {
+          modalContent.removeChild(iframe);
+        }
         modalImage.style.display = 'block';
       };
-
-      document.getElementById('close-modal-btn').addEventListener('click', closeHandler, { once: true });
     }
 
     function showFileContentModal(filename, fileType, content, path, item) {
@@ -1346,15 +1422,12 @@
 
       modal.classList.add('active');
 
-      // 清理函数
-      const closeHandler = () => {
-        modalContent.removeChild(contentContainer);
+      currentModalCleanup = () => {
+        if (contentContainer && contentContainer.parentNode === modalContent) {
+          modalContent.removeChild(contentContainer);
+        }
         modalImage.style.display = 'block';
-        modal.removeEventListener('click', closeHandler);
       };
-
-      // 点击关闭按钮时清理
-      document.getElementById('close-modal-btn').addEventListener('click', closeHandler, { once: true });
     }
 
     function getFolderData(path) {
@@ -1397,6 +1470,9 @@
       const imageUrl = resolveItemUrl(item);
       const filename = path.split('/').pop();
       const placeholderSvg = generateImagePlaceholder(filename, 800, 600);
+
+      currentModalUrl = imageUrl;
+      currentModalCleanup = null;
 
       modalImage.src = imageUrl;
       modalImage.onerror = function() {
