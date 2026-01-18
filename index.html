@@ -599,6 +599,12 @@
       return { owner, repo, ref, root: rootNormalized, token };
     }
 
+    function getServerApiBaseFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const api = params.get('api');
+      return api || 'https://www.pipbest.com/compic/upload.php';
+    }
+
     function formatBytes(bytes) {
       if (typeof bytes !== 'number' || Number.isNaN(bytes)) return '未知';
       if (bytes < 1024) return `${bytes}B`;
@@ -677,6 +683,7 @@
     }
 
     async function loadDirectoryDataFromServerApi(config) {
+      const apiBase = getServerApiBaseFromUrl();
       const params = new URLSearchParams();
       params.set('action', 'list');
       params.set('owner', config.owner);
@@ -692,7 +699,7 @@
         params.set('token', config.token);
       }
 
-      const url = `./upload.php?${params.toString()}`;
+      const url = `${apiBase}?${params.toString()}`;
       console.log('Fetching server list API:', url);
       const res = await fetch(url);
       if (!res.ok) {
@@ -1202,6 +1209,11 @@
       const fileExt = filename.split('.').pop().toLowerCase();
       const canPreview = previewableTypes.includes(fileExt);
 
+      if (fileExt === 'pdf') {
+        showPdfModal(filename, fileType, resolveItemUrl(item), path, item);
+        return;
+      }
+
       if (canPreview) {
         try {
           // 尝试加载文件内容
@@ -1237,6 +1249,44 @@
       `;
 
       modal.classList.add('active');
+    }
+
+    function showPdfModal(filename, fileType, url, path, item) {
+      const modal = document.getElementById('image-modal');
+      const modalImage = document.getElementById('modal-image');
+      const modalInfo = document.getElementById('modal-info');
+
+      modalImage.style.display = 'none';
+
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      iframe.style.cssText = `
+        width: 100%;
+        height: 500px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background: #fff;
+      `;
+
+      const modalContent = modal.querySelector('.modal-content');
+      modalContent.insertBefore(iframe, modalInfo);
+
+      modalInfo.innerHTML = `
+        <strong>${filename}</strong><br>
+        类型: ${fileType}<br>
+        大小: ${item.size || '未知'}<br>
+        路径: ${path}<br>
+        <small style="color: #007acc;">如无法预览，可点击复制链接后在新窗口打开</small>
+      `;
+
+      modal.classList.add('active');
+
+      const closeHandler = () => {
+        modalContent.removeChild(iframe);
+        modalImage.style.display = 'block';
+      };
+
+      document.getElementById('close-modal-btn').addEventListener('click', closeHandler, { once: true });
     }
 
     function showFileContentModal(filename, fileType, content, path, item) {
