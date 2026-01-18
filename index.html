@@ -120,29 +120,35 @@
     }
 
     .tree-item {
+      display: block;
+      margin: 1px 0;
+      border-radius: 4px;
+      font-size: 13px;
+      position: relative;
+    }
+
+    .tree-row {
       display: flex;
       align-items: center;
       gap: 6px;
       padding: 4px 8px;
-      margin: 1px 0;
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 13px;
-      position: relative;
       min-height: 24px;
+      position: relative;
     }
 
-    .tree-item:hover {
+    .tree-item:hover .tree-row {
       background: var(--hover);
     }
 
-    .tree-item.selected {
+    .tree-item.selected .tree-row {
       background: var(--selected);
       color: var(--accent);
     }
 
-    .tree-item.selected::before {
+    .tree-item.selected .tree-row::before {
       content: "";
       position: absolute;
       left: 0;
@@ -234,7 +240,7 @@
     }
 
     /* Connection lines for tree structure */
-    .tree-item::after {
+    .tree-row::after {
       content: "";
       position: absolute;
       left: -12px;
@@ -245,7 +251,7 @@
       display: none;
     }
 
-    .tree-children .tree-item::after {
+    .tree-children .tree-row::after {
       display: block;
     }
 
@@ -1152,11 +1158,15 @@
 
         if (item.type === 'folder') {
           itemElement.innerHTML = `
-            <div class="tree-expander ${hasChildren ? '' : 'no-children'}"></div>
-            <div class="tree-icon folder"></div>
-            <span>${name.replace('/', '')}</span>
+            <div class="tree-row">
+              <div class="tree-expander ${hasChildren ? '' : 'no-children'}"></div>
+              <div class="tree-icon folder"></div>
+              <span>${name.replace('/', '')}</span>
+            </div>
           `;
-          const expander = itemElement.querySelector('.tree-expander');
+
+          const rowEl = itemElement.querySelector('.tree-row');
+          const expander = itemElement.querySelector('.tree-row .tree-expander');
           const childrenContainer = document.createElement('div');
           childrenContainer.className = 'tree-children';
 
@@ -1175,7 +1185,7 @@
           }
 
           // Click row selects and expands (does not collapse)
-          itemElement.addEventListener('click', (e) => {
+          (rowEl || itemElement).addEventListener('click', (e) => {
             e.stopPropagation();
             selectFolder(itemElement, itemPath);
             ensureFolderExpanded(itemElement);
