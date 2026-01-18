@@ -595,8 +595,8 @@
         <button class="btn" id="export-btn">
           📊 导出CSV
         </button>
-        <button class="btn" id="search-btn">
-          � 查询
+        <button class="btn" id="refresh-btn">
+          🔄 刷新
         </button>
       </div>
 
@@ -637,7 +637,7 @@
     const gridViewBtn = document.getElementById('grid-view-btn');
     const listViewBtn = document.getElementById('list-view-btn');
     const exportBtn = document.getElementById('export-btn');
-    const searchBtn = document.getElementById('search-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
     const treeSearchInput = document.getElementById('tree-search');
     const fileSearchInput = document.getElementById('file-search');
     const currentPathEl = document.getElementById('current-path');
@@ -1090,10 +1090,10 @@
       // Export
       exportBtn.addEventListener('click', exportToCSV);
 
-      // Search button
-      if (searchBtn) {
-        searchBtn.addEventListener('click', () => {
-          currentPage = 1; // Reset to first page when searching
+      // Refresh button
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          currentPage = 1; // Reset to first page when refreshing
           renderImages();
         });
       }
@@ -1480,6 +1480,8 @@
             </div>
             <div class="image-actions">
               <button class="btn" onclick="copyImageLink('${fullPath}')">📋 复制链接</button>
+              <button class="btn" onclick="openFileLink('${fullPath}')">🔗 打开</button>
+              <button class="btn" onclick="downloadFile('${fullPath}', '${name}')">📥 下载</button>
             </div>
           `;
           const imgEl = itemElement.querySelector('img.image-thumb');
@@ -1508,6 +1510,8 @@
             <div class="image-actions">
               ${canPreview ? `<button class="btn" onclick="showFileContent('${fullPath}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">👁️ 查看内容</button>` : ''}
               <button class="btn" onclick="copyFileLink('${fullPath}')">📋 复制链接</button>
+              <button class="btn" onclick="openFileLink('${fullPath}')">🔗 打开</button>
+              <button class="btn" onclick="downloadFile('${fullPath}', '${name}')">📥 下载</button>
             </div>
           `;
           itemElement.addEventListener('click', () => showFileInfo(fullPath, item));
@@ -1865,12 +1869,122 @@
       modalImage.onerror = function() {
         this.src = placeholderSvg;
       };
+      
+      // Add navigation info
+      const allFiles = Object.entries(getFolderData(currentPath).children);
+      const searchQuery = fileSearchInput ? fileSearchInput.value.trim().toLowerCase() : '';
+      let filteredFiles = allFiles;
+      if (searchQuery) {
+        filteredFiles = allFiles.filter(([name, item]) => {
+          const fileName = name.toLowerCase();
+          const originalName = (item.original_name || '').toLowerCase();
+          return fileName.includes(searchQuery) || originalName.includes(searchQuery);
+        });
+      }
+      
+      const sortBy = sortSelect ? sortSelect.value : 'name';
+      const sortOrder = sortOrderSelect ? sortOrderSelect.value : 'asc';
+      const sortedFiles = [...filteredFiles].sort(([nameA, itemA], [nameB, itemB]) => {
+        let compareValue = 0;
+        if (sortBy === 'name') {
+          compareValue = nameA.localeCompare(nameB);
+        } else if (sortBy === 'original_name') {
+          const originalA = itemA.original_name || nameA;
+          const originalB = itemB.original_name || nameB;
+          compareValue = originalA.localeCompare(originalB);
+        } else if (sortBy === 'upload_time') {
+          const timeA = itemA.upload_time ? new Date(itemA.upload_time).getTime() : 0;
+          const timeB = itemB.upload_time ? new Date(itemB.upload_time).getTime() : 0;
+          compareValue = timeA - timeB;
+        } else if (sortBy === 'size') {
+          const sizeA = itemA.size || 0;
+          const sizeB = itemB.size || 0;
+          compareValue = sizeA - sizeB;
+        }
+        return sortOrder === 'desc' ? -compareValue : compareValue;
+      });
+      
+      const currentIndex = sortedFiles.findIndex(([name]) => name === name);
+      const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
+      const currentPage = Math.floor(currentIndex / itemsPerPage) + 1;
+      
       modalInfo.innerHTML = `
-        <strong>${filename}</strong> |
-        大小: ${item.size} |
-        尺寸: ${item.dimensions}
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div>
+            <strong>${filename}</strong><br>
+            大小: ${item.size}<br>
+            尺寸: ${item.dimensions}<br>
+            ${item.original_name ? `原始名: ${item.original_name}<br>` : ''}
+            ${item.upload_time ? `上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}<br>` : ''}
+          </div>
+          <button class="btn" style="min-width: auto; padding: 4px 8px; font-size: 12px;" onclick="closeModal()">✕</button>
+        </div>
+        ${totalPages > 1 ? `
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px;">
+          <button class="btn" onclick="navigateModal(-1)" ${currentPage === 1 ? 'disabled' : ''}>上一张</button>
+          <span style="color: var(--muted); font-size: 14px;">${currentIndex + 1} / ${sortedFiles.length}</span>
+          <button class="btn" onclick="navigateModal(1)" ${currentPage === totalPages ? 'disabled' : ''}>下一张</button>
+        </div>
+        ` : ''}
       `;
       imageModal.classList.add('active');
+    }
+
+    function navigateModal(direction) {
+      const allFiles = Object.entries(getFolderData(currentPath).children);
+      const searchQuery = fileSearchInput ? fileSearchInput.value.trim().toLowerCase() : '';
+      let filteredFiles = allFiles;
+      if (searchQuery) {
+        filteredFiles = allFiles.filter(([name, item]) => {
+          const fileName = name.toLowerCase();
+          const originalName = (item.original_name || '').toLowerCase();
+          return fileName.includes(searchQuery) || originalName.includes(searchQuery);
+        });
+      }
+      
+      const sortBy = sortSelect ? sortSelect.value : 'name';
+      const sortOrder = sortOrderSelect ? sortOrderSelect.value : 'asc';
+      const sortedFiles = [...filteredFiles].sort(([nameA, itemA], [nameB, itemB]) => {
+        let compareValue = 0;
+        if (sortBy === 'name') {
+          compareValue = nameA.localeCompare(nameB);
+        } else if (sortBy === 'original_name') {
+          const originalA = itemA.original_name || nameA;
+          const originalB = itemB.original_name || nameB;
+          compareValue = originalA.localeCompare(originalB);
+        } else if (sortBy === 'upload_time') {
+          const timeA = itemA.upload_time ? new Date(itemA.upload_time).getTime() : 0;
+          const timeB = itemB.upload_time ? new Date(itemB.upload_time).getTime() : 0;
+          compareValue = timeA - timeB;
+        } else if (sortBy === 'size') {
+          const sizeA = itemA.size || 0;
+          const sizeB = itemB.size || 0;
+          compareValue = sizeA - sizeB;
+        }
+        return sortOrder === 'desc' ? -compareValue : compareValue;
+      });
+      
+      const currentFilename = currentModalUrl ? currentModalUrl.split('/').pop() : '';
+      const currentIndex = sortedFiles.findIndex(([name, item]) => {
+        const itemUrl = resolveItemUrl(item);
+        return itemUrl === currentModalUrl;
+      });
+      
+      const newIndex = currentIndex + direction;
+      if (newIndex >= 0 && newIndex < sortedFiles.length) {
+        const [newName, newItem] = sortedFiles[newIndex];
+        const newPath = joinPath(currentPath, newName);
+        showImageModal(newPath, newItem);
+      }
+    }
+
+    function closeModal() {
+      if (typeof currentModalCleanup === 'function') {
+        try { currentModalCleanup(); } catch (e) {}
+      }
+      currentModalCleanup = null;
+      currentModalUrl = '';
+      imageModal.classList.remove('active');
     }
 
     function copyImageLink(path) {
@@ -1972,6 +2086,46 @@
       link.download = `${folderName}_files.csv`;
       link.click();
     }
+
+    function openFileLink(path) {
+      const item = getFileItem(path);
+      if (!item) return;
+      const url = resolveItemUrl(item);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    function downloadFile(path, filename) {
+      const item = getFileItem(path);
+      if (!item) return;
+      const url = resolveItemUrl(item);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function getFileItem(path) {
+      const parts = path.split('/').filter(Boolean);
+      let current = directoryData;
+      
+      for (const part of parts) {
+        if (!current || !current.children) return null;
+        const folderKey = part + '/';
+        if (current.children[folderKey]) {
+          current = current.children[folderKey];
+        } else if (current.children[part]) {
+          current = current.children[part];
+        } else {
+          return null;
+        }
+      }
+      
+      return current;
+    }
   </script>
+
 </body>
 </html>

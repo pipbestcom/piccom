@@ -369,7 +369,7 @@ function listFilesRecursive($owner, $repo, $path, $ref = null, $token = null) {
     }
     // GitHub API 默认分页大小为 30，我们设置为 100 以获取更多文件
     $params['per_page'] = 100;
-    
+
     if (!empty($params)) {
         $url .= '?' . http_build_query($params);
     }
