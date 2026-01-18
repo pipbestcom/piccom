@@ -612,6 +612,10 @@
       return { owner, repo, ref, root: rootNormalized, token };
     }
 
+    function getDefaultGithubConfig() {
+      return { owner: 'pipbestcom', repo: 'piccom', ref: 'main', root: '', token: '' };
+    }
+
     function getServerApiBaseFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const api = params.get('api');
@@ -828,12 +832,13 @@
     async function loadDirectoryData() {
       try {
         githubConfig = getGithubConfigFromUrl();
-        if (githubConfig) {
+        const effectiveGithubConfig = githubConfig || getDefaultGithubConfig();
+        if (effectiveGithubConfig) {
           try {
-            directoryData = await loadDirectoryDataFromServerApi(githubConfig);
+            directoryData = await loadDirectoryDataFromServerApi(effectiveGithubConfig);
           } catch (e) {
             console.warn('Server API mode failed, falling back to direct GitHub API:', e);
-            directoryData = await loadDirectoryDataFromGitHub(githubConfig);
+            directoryData = await loadDirectoryDataFromGitHub(effectiveGithubConfig);
           }
         } else {
           const response = await fetch('./directory-data.json');
@@ -848,7 +853,7 @@
         renderImages();
       } catch (error) {
         console.error('Error loading directory data:', error);
-        if (githubConfig) {
+        if (githubConfig || true) {
           directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载 GitHub 数据失败<br>可能原因：服务端接口不可用 / GitHub Token 未配置 / 或 GitHub API 限流<br><small style="color: var(--muted);">如走服务端接口，请确保服务器环境变量已设置 GITHUB_TOKEN；或在 URL 追加 token 参数：?owner=...&repo=...&ref=...&token=YOUR_TOKEN</small></div>';
         } else {
           directoryTree.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">加载目录数据失败<br>请确保已运行目录扫描脚本</div>';
@@ -970,7 +975,11 @@
         currentModalUrl = '';
         imageModal.classList.remove('active');
       });
-      copyLinkBtn.addEventListener('click', copyImageLink);
+      copyLinkBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        copyImageLink();
+      });
 
       if (openLinkBtn) {
         openLinkBtn.addEventListener('click', () => {
@@ -1491,6 +1500,11 @@
     }
 
     function copyFileLink(path) {
+      // When used as an event handler, `path` can be an Event object.
+      if (path && typeof path === 'object' && typeof path.preventDefault === 'function') {
+        path = '';
+      }
+
       let linkToCopy = '';
 
       if (path) {
@@ -1525,7 +1539,7 @@
           linkToCopy = window.location.origin + window.location.pathname.replace('index.html', '') + path;
         }
       } else {
-        linkToCopy = modalImage.src;
+        linkToCopy = currentModalUrl || modalImage.src;
       }
 
       navigator.clipboard.writeText(linkToCopy).then(() => {
