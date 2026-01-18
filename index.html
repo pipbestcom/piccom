@@ -635,6 +635,8 @@
     let currentModalUrl = '';
     let currentModalCleanup = null;
 
+    const imageDimensionCache = new Map();
+
     let githubConfig = null;
 
     function normalizePath(p) {
@@ -648,6 +650,41 @@
       if (!left) return right;
       if (!right) return left;
       return normalizePath(left.replace(/\/+$/, '') + '/' + right.replace(/^\/+/, ''));
+    }
+
+    function formatDimensions(width, height) {
+      const w = Number(width);
+      const h = Number(height);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return '未知';
+      return `${w}×${h}`;
+    }
+
+    function applyImageDimensionsFromElement(imgEl, item, metaEl) {
+      if (!imgEl || !item) return;
+      const url = resolveItemUrl(item);
+      if (!url) return;
+
+      const cached = imageDimensionCache.get(url);
+      if (cached) {
+        item.dimensions = cached;
+        if (metaEl) metaEl.textContent = cached;
+        return;
+      }
+
+      const update = () => {
+        const dim = formatDimensions(imgEl.naturalWidth, imgEl.naturalHeight);
+        if (dim === '未知') return;
+        imageDimensionCache.set(url, dim);
+        item.dimensions = dim;
+        if (metaEl) metaEl.textContent = dim;
+      };
+
+      if (imgEl.complete && imgEl.naturalWidth) {
+        update();
+        return;
+      }
+
+      imgEl.addEventListener('load', update, { once: true });
     }
 
     function getGithubConfigFromUrl() {
@@ -1281,9 +1318,12 @@
             <img class="grid-image" src="${imageUrl}" alt="${name}" onerror="this.src='${placeholderSvg}'">
             <div class="grid-info">
               <div class="grid-name">${name}</div>
-              <div class="grid-meta">${item.size} · ${item.dimensions}</div>
+              <div class="grid-meta">${item.size} · <span class="grid-dimensions">${item.dimensions}</span></div>
             </div>
           `;
+          const imgEl = itemElement.querySelector('img.grid-image');
+          const dimEl = itemElement.querySelector('.grid-dimensions');
+          applyImageDimensionsFromElement(imgEl, item, dimEl);
           itemElement.addEventListener('click', () => showImageModal(joinPath(currentPath, name), item));
         } else {
           // 非图片文件显示文件图标
@@ -1322,7 +1362,7 @@
               <div class="image-name">${name}</div>
               <div class="image-meta">
                 <span>大小: ${item.size}</span>
-                <span>尺寸: ${item.dimensions}</span>
+                <span>尺寸: <span class="list-dimensions">${item.dimensions}</span></span>
                 <span>路径: ${fullPath}</span>
               </div>
             </div>
@@ -1330,6 +1370,9 @@
               <button class="btn" onclick="copyImageLink('${fullPath}')">📋 复制链接</button>
             </div>
           `;
+          const imgEl = itemElement.querySelector('img.image-thumb');
+          const dimEl = itemElement.querySelector('.list-dimensions');
+          applyImageDimensionsFromElement(imgEl, item, dimEl);
           itemElement.addEventListener('click', () => showImageModal(fullPath, item));
         } else {
           // 非图片文件显示文件图标
