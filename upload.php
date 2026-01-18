@@ -11,7 +11,8 @@ define('REPO_NAME', 'piccom');
 // 默认上传目录，可以通过POST参数 'path' 覆盖
 define('DEFAULT_TARGET_DIR', 'public/mweb/');
 define('BRANCH', 'main');
-define('COMMIT_MESSAGE_PREFIX', 'upload:');
+define('COMMIT_MESSAGE_PREFIX', 'Upload by PicCom');
+define('ORIGINAL_FILENAME_PREFIX', 'original=');
 // WEBSITE_BASE 已移除，现在直接使用GitHub Raw URL确保图片可访问
 
 // 允许的文件类型
@@ -164,14 +165,20 @@ function checkFileExists($filePath) {
 /**
  * 上传文件到GitHub
  */
-function uploadToGitHub($filePath, $fileName, $base64Content, $uploadPath = null) {
+function uploadToGitHub($filePath, $fileName, $base64Content, $uploadPath = null, $originalName = '') {
     $targetPath = ($uploadPath ?: DEFAULT_TARGET_DIR) . $fileName;
 
     // 检查文件是否已存在
     $existingSha = checkFileExists($targetPath);
 
+    // 在 commit message 中保存原始文件名
+    $msgSuffix = '';
+    if ($originalName && $originalName !== $fileName) {
+        $msgSuffix = ' ' . ORIGINAL_FILENAME_PREFIX . $originalName;
+    }
+
     $payload = [
-        'message' => COMMIT_MESSAGE_PREFIX . ' ' . basename($_FILES['file']['name']) . ($existingSha ? ' (覆盖)' : ''),
+        'message' => COMMIT_MESSAGE_PREFIX . ' ' . basename($originalName ?: $fileName) . ($existingSha ? ' (覆盖)' : '') . $msgSuffix,
         'content' => $base64Content,
         'branch' => BRANCH
     ];
@@ -243,8 +250,8 @@ function handleUpload() {
         // 读取文件内容并转换为Base64
         $base64Content = fileToBase64($file['tmp_name']);
 
-        // 上传到GitHub
-        $uploadedPath = uploadToGitHub($file['tmp_name'], $newFileName, $base64Content, $uploadPath);
+        // 上传到GitHub（传入原始文件名）
+        $uploadedPath = uploadToGitHub($file['tmp_name'], $newFileName, $base64Content, $uploadPath, $file['name']);
 
         // 调试信息
         error_log("Upload path: " . $uploadPath);
@@ -305,6 +312,47 @@ function isAllowedFilename($filename) {
     return in_array($ext, $allowed, true);
 }
 
+function extractOriginalNameFromCommitMessage($commitMessage) {
+    if (!is_string($commitMessage)) return '';
+    $pos = strpos($commitMessage, ORIGINAL_FILENAME_PREFIX);
+    if ($pos === false) return '';
+    $start = $pos + strlen(ORIGINAL_FILENAME_PREFIX);
+    $original = trim(substr($commitMessage, $start));
+    // 只取到下一个空格或行尾
+    $spacePos = strpos($original, ' ');
+    if ($spacePos !== false) {
+        $original = substr($original, 0, $spacePos);
+    }
+    return $original;
+}
+
+function getCommitMessageForFile($owner, $repo, $path, $ref = null, $token = null) {
+    $owner = trim((string)$owner);
+    $repo = trim((string)$repo);
+    $path = trim((string)$path);
+    $path = trim($path, '/');
+
+    $url = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/commits?path=" . rawurlencode($path);
+    if (!empty($ref)) {
+        $url .= '&sha=' . rawurlencode($ref);
+    }
+
+    list($httpCode, $response) = sendGitHubRequest($url, [], 'GET', $token);
+
+    if ($httpCode !== 200) {
+        return '';
+    }
+
+    $commits = json_decode($response, true);
+    if (!is_array($commits) || empty($commits)) {
+        return '';
+    }
+
+    // 取最新 commit 的 message
+    $latestCommit = $commits[0];
+    return $latestCommit['commit']['message'] ?? '';
+}
+
 function listFilesRecursive($owner, $repo, $path, $ref = null, $token = null) {
     $owner = trim((string)$owner);
     $repo = trim((string)$repo);
@@ -337,9 +385,13 @@ function listFilesRecursive($owner, $repo, $path, $ref = null, $token = null) {
             if (!isset($item['name']) || !isAllowedFilename($item['name'])) {
                 continue;
             }
+            // 尝试从 commit message 提取原始文件名
+            $commitMsg = getCommitMessageForFile($owner, $repo, $item['path'], $ref, $token);
+            $originalName = extractOriginalNameFromCommitMessage($commitMsg);
             $files[] = [
                 'type' => 'file',
                 'name' => $item['name'] ?? '',
+                'original_name' => $originalName ?: '',
                 'path' => $item['path'] ?? '',
                 'sha' => $item['sha'] ?? '',
                 'size' => $item['size'] ?? 0,

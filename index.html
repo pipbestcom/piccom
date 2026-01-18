@@ -1754,7 +1754,8 @@
         const sizeOrFormat = item.type === 'image' ? item.dimensions : item.size;
         const fullPath = joinPath(currentPath, name);
         const url = resolveItemUrl(item);
-        csvContent += `"${name}","${name}","${fullPath}","${fileType}","${item.size}","${sizeOrFormat}","${url}"\n`;
+        const originalName = item.original_name || name;
+        csvContent += `"${name}","${originalName}","${fullPath}","${fileType}","${item.size}","${sizeOrFormat}","${url}"\n`;
       });
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
