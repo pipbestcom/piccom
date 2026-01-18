@@ -615,9 +615,9 @@
       <div class="modal-actions">
         <div id="modal-info"></div>
         <div>
-          <button class="btn" id="copy-link-btn">📋 复制链接</button>
-          <button class="btn" id="close-modal-btn">✕ 关闭</button>
-          <button class="btn" id="open-link-btn">🔗 打开链接</button>
+          <button class="btn" id="copy-link-btn">📋 复制</button>
+          <button class="btn" id="close-modal-btn">❌ 关闭</button>
+          <button class="btn" id="open-link-btn">🔗 打开</button>
           <button class="btn" id="download-btn">📥 下载</button>
         </div>
       </div>
@@ -1479,7 +1479,7 @@
               </div>
             </div>
             <div class="image-actions">
-              <button class="btn" onclick="copyImageLink('${fullPath}')">📋 复制链接</button>
+              <button class="btn" onclick="copyImageLink('${fullPath}')">📋 复制</button>
               <button class="btn" onclick="openFileLink('${fullPath}')">🔗 打开</button>
               <button class="btn" onclick="downloadFile('${fullPath}', '${name}')">📥 下载</button>
             </div>
@@ -1509,7 +1509,7 @@
             </div>
             <div class="image-actions">
               ${canPreview ? `<button class="btn" onclick="showFileContent('${fullPath}', ${JSON.stringify(item).replace(/"/g, '&quot;')})">👁️ 查看内容</button>` : ''}
-              <button class="btn" onclick="copyFileLink('${fullPath}')">📋 复制链接</button>
+              <button class="btn" onclick="copyFileLink('${fullPath}')">📋 复制</button>
               <button class="btn" onclick="openFileLink('${fullPath}')">🔗 打开</button>
               <button class="btn" onclick="downloadFile('${fullPath}', '${name}')">📥 下载</button>
             </div>
