@@ -480,19 +480,177 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .modal-image-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      min-height: 0;
+      position: relative;
     }
 
     .modal-image {
       max-width: 100%;
-      max-height: 80vh;
+      max-height: 100%;
       display: block;
+      object-fit: contain;
     }
 
     .modal-actions {
       padding: 16px;
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
+      flex-shrink: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      position: relative;
+      z-index: 10;
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
       align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 20;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      background: rgba(0,0,0,0.8);
+      transform: scale(1.1);
+    }
+
+    .modal-navigation {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      z-index: 15;
+    }
+
+    .modal-nav-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .modal-nav-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .modal-nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .modal-nav-counter {
+      color: white;
+      font-size: 12px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    /* Responsive modal */
+    @media (max-width: 768px) {
+      .modal-content {
+        max-width: 95vw;
+        max-height: 95vh;
+        margin: 10px;
+      }
+
+      .modal-actions {
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      .modal-close-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+        top: 4px;
+        right: 4px;
+      }
+
+      .modal-navigation {
+        bottom: 10px;
+        padding: 6px 12px;
+        gap: 8px;
+      }
+
+      .modal-nav-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      .modal-nav-counter {
+        font-size: 11px;
+        min-width: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal-content {
+        max-width: 98vw;
+        max-height: 98vh;
+        margin: 5px;
+      }
+
+      .modal-actions {
+        padding: 8px;
+        font-size: 12px;
+      }
+
+      .modal-close-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+      }
+
+      .modal-navigation {
+        bottom: 8px;
+        padding: 4px 8px;
+        gap: 6px;
+      }
+
+      .modal-nav-btn {
+        padding: 3px 6px;
+        font-size: 10px;
+      }
+
+      .modal-nav-counter {
+        font-size: 10px;
+        min-width: 40px;
+      }
     }
 
     /* Loading */
@@ -611,12 +769,19 @@
   <!-- Image Preview Modal -->
   <div class="modal" id="image-modal">
     <div class="modal-content">
-      <img id="modal-image" class="modal-image" src="" alt="">
+      <button class="modal-close-btn" onclick="closeModal()">✕</button>
+      <div class="modal-image-container">
+        <img id="modal-image" class="modal-image" src="" alt="">
+        <div class="modal-navigation" id="modal-navigation">
+          <button class="modal-nav-btn" onclick="navigateModal(-1)">上一张</button>
+          <span class="modal-nav-counter" id="modal-counter">1 / 10</span>
+          <button class="modal-nav-btn" onclick="navigateModal(1)">下一张</button>
+        </div>
+      </div>
       <div class="modal-actions">
         <div id="modal-info"></div>
         <div>
           <button class="btn" id="copy-link-btn">📋 复制</button>
-          <button class="btn" id="close-modal-btn">❌ 关闭</button>
           <button class="btn" id="open-link-btn">🔗 打开</button>
           <button class="btn" id="download-btn">📥 下载</button>
         </div>
@@ -1904,29 +2069,37 @@
         return sortOrder === 'desc' ? -compareValue : compareValue;
       });
       
-      const currentIndex = sortedFiles.findIndex(([name]) => name === name);
+      const currentIndex = sortedFiles.findIndex(([name]) => name === filename);
       const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
       const currentPage = Math.floor(currentIndex / itemsPerPage) + 1;
       
+      // Update modal info
       modalInfo.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-          <div>
-            <strong>${filename}</strong><br>
-            大小: ${item.size}<br>
-            尺寸: ${item.dimensions}<br>
-            ${item.original_name ? `原始名: ${item.original_name}<br>` : ''}
-            ${item.upload_time ? `上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}<br>` : ''}
-          </div>
-          <button class="btn" style="min-width: auto; padding: 4px 8px; font-size: 12px;" onclick="closeModal()">✕</button>
-        </div>
-        ${totalPages > 1 ? `
-        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px;">
-          <button class="btn" onclick="navigateModal(-1)" ${currentPage === 1 ? 'disabled' : ''}>上一张</button>
-          <span style="color: var(--muted); font-size: 14px;">${currentIndex + 1} / ${sortedFiles.length}</span>
-          <button class="btn" onclick="navigateModal(1)" ${currentPage === totalPages ? 'disabled' : ''}>下一张</button>
-        </div>
-        ` : ''}
+        <strong>${filename}</strong><br>
+        大小: ${item.size}<br>
+        尺寸: ${item.dimensions}<br>
+        ${item.original_name ? `原始名: ${item.original_name}<br>` : ''}
+        ${item.upload_time ? `上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}<br>` : ''}
       `;
+      
+      // Update navigation
+      const navigation = document.getElementById('modal-navigation');
+      const counter = document.getElementById('modal-counter');
+      
+      if (sortedFiles.length > 1) {
+        navigation.style.display = 'flex';
+        counter.textContent = `${currentIndex + 1} / ${sortedFiles.length}`;
+        
+        // Update button states
+        const prevBtn = navigation.querySelector('.modal-nav-btn:first-child');
+        const nextBtn = navigation.querySelector('.modal-nav-btn:last-child');
+        
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === sortedFiles.length - 1;
+      } else {
+        navigation.style.display = 'none';
+      }
+      
       imageModal.classList.add('active');
     }
 
