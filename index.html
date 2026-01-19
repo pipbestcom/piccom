@@ -2069,37 +2069,29 @@
         return sortOrder === 'desc' ? -compareValue : compareValue;
       });
       
-      const currentIndex = sortedFiles.findIndex(([name]) => name === filename);
+      const currentIndex = sortedFiles.findIndex(([name]) => name === name);
       const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
       const currentPage = Math.floor(currentIndex / itemsPerPage) + 1;
       
-      // Update modal info
       modalInfo.innerHTML = `
-        <strong>${filename}</strong><br>
-        大小: ${item.size}<br>
-        尺寸: ${item.dimensions}<br>
-        ${item.original_name ? `原始名: ${item.original_name}<br>` : ''}
-        ${item.upload_time ? `上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}<br>` : ''}
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div>
+            <strong>${filename}</strong><br>
+            大小: ${item.size}<br>
+            尺寸: ${item.dimensions}<br>
+            ${item.original_name ? `原始名: ${item.original_name}<br>` : ''}
+            ${item.upload_time ? `上传时间: ${new Date(item.upload_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}<br>` : ''}
+          </div>
+          <button class="btn" style="min-width: auto; padding: 4px 8px; font-size: 12px;" onclick="closeModal()">✕</button>
+        </div>
+        ${totalPages > 1 ? `
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px;">
+          <button class="btn" onclick="navigateModal(-1)" ${currentPage === 1 ? 'disabled' : ''}>上一张</button>
+          <span style="color: var(--muted); font-size: 14px;">${currentIndex + 1} / ${sortedFiles.length}</span>
+          <button class="btn" onclick="navigateModal(1)" ${currentPage === totalPages ? 'disabled' : ''}>下一张</button>
+        </div>
+        ` : ''}
       `;
-      
-      // Update navigation
-      const navigation = document.getElementById('modal-navigation');
-      const counter = document.getElementById('modal-counter');
-      
-      if (sortedFiles.length > 1) {
-        navigation.style.display = 'flex';
-        counter.textContent = `${currentIndex + 1} / ${sortedFiles.length}`;
-        
-        // Update button states
-        const prevBtn = navigation.querySelector('.modal-nav-btn:first-child');
-        const nextBtn = navigation.querySelector('.modal-nav-btn:last-child');
-        
-        prevBtn.disabled = currentIndex === 0;
-        nextBtn.disabled = currentIndex === sortedFiles.length - 1;
-      } else {
-        navigation.style.display = 'none';
-      }
-      
       imageModal.classList.add('active');
     }
 

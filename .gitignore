@@ -56,6 +56,9 @@ compic/
 mweb/
 public/
 images/
-
+compic_mg/
 # MD5 index file
 .md5_index.json
+compic_v1.zip
+.gitignore
+compic_v2.zip
