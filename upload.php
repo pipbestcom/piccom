@@ -208,16 +208,87 @@ function calculateFileMD5($filePath) {
 }
 
 /**
- * 检查文件是否已存在（通过MD5）
+ * 获取或创建 MD5 索引文件
  */
-function checkFileExistsByMD5($md5Hash, $owner, $repo, $ref = null, $token = null) {
-    // 获取所有文件列表
+function getMD5Index($owner, $repo, $ref = null, $token = null) {
+    $indexPath = '.md5_index.json';
+    $indexUrl = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/contents/" . $indexPath;
+    $indexUrl .= '?ref=' . rawurlencode($ref);
+    
+    // 尝试获取现有索引
+    list($httpCode, $response) = sendGitHubRequest($indexUrl, [], 'GET', $token);
+    
+    if ($httpCode === 200) {
+        $data = json_decode($response, true);
+        if (isset($data['content'])) {
+            $indexContent = base64_decode($data['content']);
+            $index = json_decode($indexContent, true);
+            if (is_array($index)) {
+                return [
+                    'index' => $index,
+                    'sha' => $data['sha']
+                ];
+            }
+        }
+    }
+    
+    // 如果索引不存在或无效，返回空索引
+    return [
+        'index' => [],
+        'sha' => null
+    ];
+}
+
+/**
+ * 保存 MD5 索引到仓库
+ */
+function saveMD5Index($index, $sha = null, $owner, $repo, $ref = null, $token = null) {
+    $indexPath = '.md5_index.json';
+    $indexUrl = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/contents/" . $indexPath;
+    
+    $indexContent = json_encode($index, JSON_PRETTY_PRINT);
+    $base64Content = base64_encode($indexContent);
+    
+    $payload = [
+        'message' => 'Update MD5 index',
+        'content' => $base64Content,
+        'branch' => $ref
+    ];
+    
+    // 如果文件已存在，需要提供 sha
+    if ($sha) {
+        $payload['sha'] = $sha;
+    }
+    
+    list($httpCode, $response) = sendGitHubRequest($indexUrl, $payload, 'PUT', $token);
+    
+    if ($httpCode !== 200 && $httpCode !== 201) {
+        $error = json_decode($response, true);
+        error_log("Failed to save MD5 index: " . ($error['message'] ?? 'Unknown error'));
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * 构建完整的 MD5 索引
+ */
+function buildMD5Index($owner, $repo, $ref = null, $token = null) {
+    error_log("Building MD5 index...");
+    $index = [];
+    
+    // 获取所有文件
     $files = listFilesRecursive($owner, $repo, '', $ref, $token);
     
-    // 遍历所有文件，查找匹配的MD5
     foreach ($files as $file) {
         if ($file['type'] === 'file' && isset($file['path'])) {
-            // 获取文件内容来计算MD5
+            // 跳过索引文件本身
+            if ($file['path'] === '.md5_index.json') {
+                continue;
+            }
+            
+            // 获取文件内容计算 MD5
             $fileUrl = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/contents/" . ltrim($file['path'], '/');
             $fileUrl .= '?ref=' . rawurlencode($ref);
             
@@ -227,21 +298,71 @@ function checkFileExistsByMD5($md5Hash, $owner, $repo, $ref = null, $token = nul
                 if (isset($data['content'])) {
                     $content = base64_decode($data['content']);
                     $fileMD5 = md5($content);
-                    if ($fileMD5 === $md5Hash) {
-                        return [
-                            'exists' => true,
-                            'path' => $file['path'],
-                            'url' => "https://pic.pipbest.com/" . $file['path'],
-                            'name' => $file['name'],
-                            'sha' => $file['sha']
-                        ];
-                    }
+                    $index[$fileMD5] = [
+                        'path' => $file['path'],
+                        'url' => "https://pic.pipbest.com/" . $file['path'],
+                        'name' => $file['name'],
+                        'sha' => $file['sha'],
+                        'size' => $file['size'] ?? 0,
+                        'upload_time' => $file['upload_time'] ?? ''
+                    ];
                 }
             }
         }
     }
     
+    error_log("MD5 index built with " . count($index) . " entries");
+    return $index;
+}
+
+/**
+ * 检查文件是否已存在（通过MD5）- 优化版本
+ */
+function checkFileExistsByMD5($md5Hash, $owner, $repo, $ref = null, $token = null) {
+    // 获取 MD5 索引
+    $indexData = getMD5Index($owner, $repo, $ref, $token);
+    $index = $indexData['index'];
+    
+    // 如果索引为空，构建完整索引
+    if (empty($index)) {
+        error_log("MD5 index is empty, building full index...");
+        $index = buildMD5Index($owner, $repo, $ref, $token);
+        saveMD5Index($index, null, $owner, $repo, $ref, $token);
+    }
+    
+    // 检查 MD5 是否存在
+    if (isset($index[$md5Hash])) {
+        return [
+            'exists' => true,
+            'path' => $index[$md5Hash]['path'],
+            'url' => $index[$md5Hash]['url'],
+            'name' => $index[$md5Hash]['name'],
+            'sha' => $index[$md5Hash]['sha']
+        ];
+    }
+    
     return ['exists' => false];
+}
+
+/**
+ * 更新 MD5 索引（添加新文件）
+ */
+function updateMD5Index($md5Hash, $fileInfo, $owner, $repo, $ref = null, $token = null) {
+    $indexData = getMD5Index($owner, $repo, $ref, $token);
+    $index = $indexData['index'];
+    
+    // 添加新文件到索引
+    $index[$md5Hash] = [
+        'path' => $fileInfo['path'],
+        'url' => $fileInfo['url'],
+        'name' => $fileInfo['name'],
+        'sha' => $fileInfo['sha'],
+        'size' => $fileInfo['size'] ?? 0,
+        'upload_time' => date('c')
+    ];
+    
+    // 保存更新后的索引
+    return saveMD5Index($index, $indexData['sha'], $owner, $repo, $ref, $token);
 }
 
 /**
@@ -333,6 +454,26 @@ function handleUpload() {
         $imageUrl = "https://pic.pipbest.com/" . $uploadedPath;
 
         error_log("Final URL: " . $imageUrl);
+        
+        // 获取上传后文件的 SHA（用于更新索引）
+        $fileUrl = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/contents/" . ltrim($uploadedPath, '/');
+        $fileUrl .= '?ref=' . rawurlencode($ref);
+        list($httpCode, $response) = sendGitHubRequest($fileUrl, [], 'GET', $token);
+        $fileSha = null;
+        if ($httpCode === 200) {
+            $data = json_decode($response, true);
+            $fileSha = $data['sha'] ?? null;
+        }
+        
+        // 更新 MD5 索引
+        $fileInfo = [
+            'path' => $uploadedPath,
+            'url' => $imageUrl,
+            'name' => $newFileName,
+            'sha' => $fileSha,
+            'size' => $file['size']
+        ];
+        updateMD5Index($fileMD5, $fileInfo, $owner, $repo, $ref, $token);
 
         // 返回MWeb兼容的JSON格式
         return [

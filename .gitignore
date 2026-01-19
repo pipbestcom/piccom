@@ -56,3 +56,6 @@ compic/
 mweb/
 public/
 images/
+
+# MD5 index file
+.md5_index.json
