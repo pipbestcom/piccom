@@ -787,9 +787,9 @@
       <div class="content-area">
         <div class="grid-view active" id="grid-view"></div>
         <div class="list-view" id="list-view"></div>
+        <div id="pagination-container"></div>
       </div>
     </div>
-    <div id="pagination-container"></div>
   </div>
 
   <!-- Image Preview Modal -->
@@ -1066,6 +1066,18 @@
 
       console.log('Loading GitHub data for:', config.owner, config.repo, config.ref);
 
+      // Try to load from cache first
+      const cacheKey = `github_data_${config.owner}_${config.repo}_${config.ref}`;
+      const cached = localStorage.getItem(cacheKey);
+      const cacheTime = localStorage.getItem(`${cacheKey}_time`);
+      const now = Date.now();
+      
+      // Use cache if it's less than 5 minutes old
+      if (cached && cacheTime && (now - parseInt(cacheTime)) < 5 * 60 * 1000) {
+        console.log('Using cached GitHub data');
+        return JSON.parse(cached);
+      }
+
       const commitUrl = `https://api.github.com/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/commits/${encodeURIComponent(config.ref)}`;
       console.log('Fetching commit:', commitUrl);
       
@@ -1095,7 +1107,13 @@
       const treeJson = await treeRes.json();
       console.log('Got tree with', treeJson.tree ? treeJson.tree.length : 0, 'items');
       
-      return buildDirectoryDataFromGitHubTree(treeJson, config);
+      const directoryData = buildDirectoryDataFromGitHubTree(treeJson, config);
+      
+      // Cache the result
+      localStorage.setItem(cacheKey, JSON.stringify(directoryData));
+      localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+      
+      return directoryData;
     }
 
     function buildDirectoryDataFromGitHubTree(treeJson, config) {
