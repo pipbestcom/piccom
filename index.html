@@ -770,6 +770,12 @@
           </button>
         </div>
         <div style="flex:1;"></div>
+        <select id="page-size-select" style="padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text);">
+          <option value="20">20条/页</option>
+          <option value="50" selected>50条/页</option>
+          <option value="100">100条/页</option>
+          <option value="200">200条/页</option>
+        </select>
         <button class="btn" id="export-btn">
           📊 导出CSV
         </button>
@@ -838,6 +844,7 @@
     const downloadBtn = document.getElementById('download-btn');
     const sortSelect = document.getElementById('sort-select');
     const sortOrderSelect = document.getElementById('sort-order');
+    const pageSizeSelect = document.getElementById('page-size-select');
 
     let currentModalUrl = '';
     let currentModalCleanup = null;
@@ -846,7 +853,7 @@
 
     let githubConfig = null;
     let currentPage = 1;
-    const itemsPerPage = 50;
+    let itemsPerPage = 50;
 
     function normalizePath(p) {
       if (typeof p !== 'string') return '';
@@ -1281,6 +1288,11 @@
           currentPage = 1; // Reset to first page when refreshing
           renderImages();
         });
+      }
+
+      // Page size change
+      if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', changePageSize);
       }
 
       // Tree search
@@ -1722,13 +1734,16 @@
         return;
       }
 
-      let paginationHtml = '<div style="display: flex; align-items: center; gap: 8px; padding: 16px; justify-content: center; flex-wrap: wrap;">';
+      let paginationHtml = '<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; flex-wrap: wrap; gap: 16px;">';
+      
+      // Left side: Previous button and page numbers
+      paginationHtml += '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">';
       
       // Previous button
       paginationHtml += `<button class="btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
       
       // Page numbers
-      const maxVisiblePages = 5;
+      const maxVisiblePages = 7;
       let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
       let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
       
@@ -1758,11 +1773,25 @@
       // Next button
       paginationHtml += `<button class="btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
       
+      paginationHtml += '</div>';
+      
+      // Right side: Page info and jump to page
+      paginationHtml += '<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">';
+      
       // Page info
       const startItem = (currentPage - 1) * itemsPerPage + 1;
       const endItem = Math.min(currentPage * itemsPerPage, totalItems);
-      paginationHtml += `<span style="color: var(--muted); margin-left: 16px;">显示 ${startItem}-${endItem} / 共 ${totalItems} 项</span>`;
+      paginationHtml += `<span style="color: var(--muted);">显示 ${startItem}-${endItem} / 共 ${totalItems} 项</span>`;
       
+      // Jump to page input
+      paginationHtml += '<div style="display: flex; align-items: center; gap: 4px;">';
+      paginationHtml += '<span style="color: var(--muted);">跳转到</span>';
+      paginationHtml += `<input type="number" id="jump-page-input" min="1" max="${totalPages}" value="${currentPage}" style="width: 60px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--text); text-align: center;">`;
+      paginationHtml += '<span style="color: var(--muted);">页</span>';
+      paginationHtml += '<button class="btn" onclick="jumpToPage()">跳转</button>';
+      paginationHtml += '</div>';
+      
+      paginationHtml += '</div>';
       paginationHtml += '</div>';
       paginationContainer.innerHTML = paginationHtml;
     }
@@ -1787,6 +1816,49 @@
       if (page > totalPages) return;
       
       currentPage = page;
+      renderImages();
+    }
+
+    function jumpToPage() {
+      const jumpInput = document.getElementById('jump-page-input');
+      if (!jumpInput) return;
+      
+      const targetPage = parseInt(jumpInput.value);
+      if (isNaN(targetPage) || targetPage < 1) return;
+      
+      const folderData = getFolderData(currentPath);
+      if (!folderData || folderData.type !== 'folder') return;
+      
+      const allFiles = Object.entries(folderData.children);
+      const searchQuery = fileSearchInput ? fileSearchInput.value.trim().toLowerCase() : '';
+      let filteredFiles = allFiles;
+      if (searchQuery) {
+        filteredFiles = allFiles.filter(([name, item]) => {
+          const fileName = name.toLowerCase();
+          const originalName = (item.original_name || '').toLowerCase();
+          return fileName.includes(searchQuery) || originalName.includes(searchQuery);
+        });
+      }
+      
+      const totalPages = Math.ceil(filteredFiles.length / itemsPerPage);
+      const validPage = Math.min(Math.max(1, targetPage), totalPages);
+      
+      if (validPage !== targetPage) {
+        jumpInput.value = validPage;
+      }
+      
+      currentPage = validPage;
+      renderImages();
+    }
+
+    function changePageSize() {
+      if (!pageSizeSelect) return;
+      
+      const newPageSize = parseInt(pageSizeSelect.value);
+      if (isNaN(newPageSize) || newPageSize < 1) return;
+      
+      itemsPerPage = newPageSize;
+      currentPage = 1; // Reset to first page when changing page size
       renderImages();
     }
 
