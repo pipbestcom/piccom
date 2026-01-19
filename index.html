@@ -1347,14 +1347,18 @@
     }
 
     // Modal
-      closeModalBtn.addEventListener('click', () => {
-        if (typeof currentModalCleanup === 'function') {
-          try { currentModalCleanup(); } catch (e) {}
-        }
-        currentModalCleanup = null;
-        currentModalUrl = '';
-        imageModal.classList.remove('active');
-      });
+      const closeModalBtn = document.getElementById('close-modal-btn');
+      if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+          if (typeof currentModalCleanup === 'function') {
+            try { currentModalCleanup(); } catch (e) {}
+          }
+          currentModalCleanup = null;
+          currentModalUrl = '';
+          imageModal.classList.remove('active');
+        });
+      }
+      
       copyLinkBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
