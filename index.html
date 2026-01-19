@@ -1630,9 +1630,17 @@
       const endIndex = startIndex + itemsPerPage;
       const paginatedFiles = sortedFiles.slice(startIndex, endIndex);
 
+      // Only render current page items
+      renderImagesPage(paginatedFiles);
+      
+      // Render pagination controls
+      renderPaginationControls(totalPages, sortedFiles.length);
+    }
+
+    function renderImagesPage(files) {
       // Grid view
       gridView.innerHTML = '';
-      paginatedFiles.forEach(([name, item]) => {
+      files.forEach(([name, item]) => {
         const itemElement = document.createElement('div');
         itemElement.className = 'grid-item';
 
@@ -1752,10 +1760,10 @@
         return;
       }
 
-      let paginationHtml = '<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; flex-wrap: wrap; gap: 16px;">';
+      let paginationHtml = '<div style="text-align: center; padding: 16px; display: flex; flex-direction: column; gap: 12px;">';
       
-      // Left side: Previous button and page numbers
-      paginationHtml += '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">';
+      // First row: Navigation buttons and page numbers
+      paginationHtml += '<div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">';
       
       // Previous button
       paginationHtml += `<button class="btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
@@ -1793,8 +1801,8 @@
       
       paginationHtml += '</div>';
       
-      // Right side: Page info and jump to page
-      paginationHtml += '<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">';
+      // Second row: Page info and controls
+      paginationHtml += '<div style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">';
       
       // Page info
       const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -1808,6 +1816,14 @@
       paginationHtml += '<span style="color: var(--muted);">页</span>';
       paginationHtml += '<button class="btn" onclick="jumpToPage()">跳转</button>';
       paginationHtml += '</div>';
+      
+      // Page size selector
+      paginationHtml += '<select id="page-size-select" style="padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--text);" onchange="changePageSize()">';
+      paginationHtml += '<option value="20">20条/页</option>';
+      paginationHtml += '<option value="50" selected>50条/页</option>';
+      paginationHtml += '<option value="100">100条/页</option>';
+      paginationHtml += '<option value="200">200条/页</option>';
+      paginationHtml += '</select>';
       
       paginationHtml += '</div>';
       paginationHtml += '</div>';
