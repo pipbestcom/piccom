@@ -201,6 +201,50 @@ function uploadToGitHub($filePath, $fileName, $base64Content, $uploadPath = null
 }
 
 /**
+ * 计算文件的MD5哈希值
+ */
+function calculateFileMD5($filePath) {
+    return md5_file($filePath);
+}
+
+/**
+ * 检查文件是否已存在（通过MD5）
+ */
+function checkFileExistsByMD5($md5Hash, $owner, $repo, $ref = null, $token = null) {
+    // 获取所有文件列表
+    $files = listFilesRecursive($owner, $repo, '', $ref, $token);
+    
+    // 遍历所有文件，查找匹配的MD5
+    foreach ($files as $file) {
+        if ($file['type'] === 'file' && isset($file['path'])) {
+            // 获取文件内容来计算MD5
+            $fileUrl = "https://api.github.com/repos/" . rawurlencode($owner) . "/" . rawurlencode($repo) . "/contents/" . ltrim($file['path'], '/');
+            $fileUrl .= '?ref=' . rawurlencode($ref);
+            
+            list($httpCode, $response) = sendGitHubRequest($fileUrl, [], 'GET', $token);
+            if ($httpCode === 200) {
+                $data = json_decode($response, true);
+                if (isset($data['content'])) {
+                    $content = base64_decode($data['content']);
+                    $fileMD5 = md5($content);
+                    if ($fileMD5 === $md5Hash) {
+                        return [
+                            'exists' => true,
+                            'path' => $file['path'],
+                            'url' => "https://pic.pipbest.com/" . $file['path'],
+                            'name' => $file['name'],
+                            'sha' => $file['sha']
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    return ['exists' => false];
+}
+
+/**
  * 处理文件上传
  */
 function handleUpload() {
@@ -246,6 +290,32 @@ function handleUpload() {
 
         // 生成新的文件名
         $newFileName = buildUuidFilename($file['name']);
+        
+        // 计算上传文件的MD5
+        $fileMD5 = calculateFileMD5($file['tmp_name']);
+        error_log("File MD5: " . $fileMD5);
+        
+        // 检查文件是否已存在（通过MD5）
+        $owner = $_POST['owner'] ?? REPO_OWNER;
+        $repo = $_POST['repo'] ?? REPO_NAME;
+        $ref = $_POST['ref'] ?? BRANCH;
+        $token = $_POST['token'] ?? null;
+        
+        $existingFile = checkFileExistsByMD5($fileMD5, $owner, $repo, $ref, $token);
+        if ($existingFile['exists']) {
+            error_log("File already exists, returning existing file: " . $existingFile['path']);
+            
+            // 返回已存在文件的信息
+            return [
+                'success' => true,
+                'url' => $existingFile['url'],
+                'path' => $existingFile['path'],
+                'name' => $existingFile['name'],
+                'size' => $file['size'],
+                'duplicate' => true,
+                'message' => '文件已存在，返回原始链接'
+            ];
+        }
 
         // 读取文件内容并转换为Base64
         $base64Content = fileToBase64($file['tmp_name']);
@@ -644,7 +714,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
                 'url' => $imageUrl,        // MWeb主要使用的字段
                 'name' => $result['name'], // 文件名
                 'path' => $result['path'], // GitHub路径
-                'size' => $result['size']  // 文件大小
+                'size' => $result['size'], // 文件大小
+                'duplicate' => $result['duplicate'] ?? false, // 是否为重复文件
+                'message' => $result['message'] ?? null      // 附加消息
             ];
 
             // 如果请求包含debug参数，添加调试信息
