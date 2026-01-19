@@ -51,3 +51,8 @@ jspm_packages/
 
 # Compic directory (PHP backend)
 compic/
+
+# Upload directories
+mweb/
+public/
+images/
