@@ -1631,13 +1631,13 @@
       const paginatedFiles = sortedFiles.slice(startIndex, endIndex);
 
       // Only render current page items
-      renderImagesPage(paginatedFiles);
+      renderImagesPage(paginatedFiles, totalPages);
       
       // Render pagination controls
       renderPaginationControls(totalPages, sortedFiles.length);
     }
 
-    function renderImagesPage(files) {
+    function renderImagesPage(files, totalPages) {
       // Grid view
       gridView.innerHTML = '';
       files.forEach(([name, item]) => {
